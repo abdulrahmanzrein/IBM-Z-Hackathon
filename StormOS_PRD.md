@@ -14,7 +14,7 @@
 | Agencies coordinated | Fire Incident Command + Utility Operator + Traffic Management |
 | Real data | 2025 Palisades Fire GeoJSON (NIFC) + OSM infrastructure + Open-Meteo weather |
 | Required AI stack | Featherless open-weight models for specialist agents + IBM watsonx.ai Granite for coordinator |
-| Team split | P1: Frontend + Map · P2: Backend + Physics · P3: Orchestrator + Integration + Demo |
+| Team split | P1: Frontend + Map · P2: Backend + Physics + Agent Pipeline · P3: Scenario Data + Integration + Demo |
 | Build window | 36 hours |
 | SDGs | SDG 11.5 (reduce disaster deaths), SDG 13.1 (climate resilience), SDG 9.1 (resilient infrastructure) |
 | Judging weights | Innovation 25% · Technical 25% · Impact/SDG 25% · Usability 15% · Presentation 10% |
@@ -227,7 +227,7 @@ Fallback rule: if Featherless or watsonx is unavailable during the demo, determi
 
 ## 8. Team Split
 
-**Design rule:** P2 defines the output contract at hour 2 and shares it immediately. P1 builds the entire frontend against hardcoded mock JSON from hour zero — never waiting. P3 builds the orchestrator routing independently. No blocking dependencies after hour 2.
+**Design rule:** P2 defines the output contract at hour 2 and shares it immediately. P1 builds the entire frontend against hardcoded mock JSON from hour zero — never waiting. P3 prepares scenario data independently against the same contract. No blocking dependencies after hour 2.
 
 ### Output Contract (defined at hour 2, shared immediately)
 
@@ -278,8 +278,8 @@ Fallback rule: if Featherless or watsonx is unavailable during the demo, determi
 | Person | Owns | Hours 0–18 | Hours 18–36 |
 |--------|------|-----------|------------|
 | P1 — Frontend | Everything the user sees. No backend. No agents. | Set up frontend. Create mock_response.json. Build full operator dashboard: disaster selector, time slider, dispatch button. Build map: Palisades GeoJSON fire perimeter, power line cascade layer, substation markers, PCH road status, debris flow zone, cascade pulse animations. Build validator feed panel. Build three agency panels. | Connect to real backend when P2 has /dispatch/wildfire/1 running. Fix display bugs. Record 2–3 min demo video. Write Devpost submission, README, architecture diagram, 5-slide deck. Own all submission deliverables. |
-| P2 — Backend + Physics | Shared infrastructure + wildfire physics. Most critical role. | Scaffold backend. Define output contract at hour 2, share immediately. Build physics module: Rothermel spread rate + threat level, deterministic cascade graph propagation, USGS M1 debris flow. Test each engine with assertions before touching agents. Build validator: three check functions, retry loop max 2, violation message format. Build Featherless specialist agent wrappers and IBM watsonx Granite coordinator wrapper with deterministic fallbacks. Wire full pipeline. Test POST /dispatch/wildfire/1 returns valid contract JSON. | Add real-time event streaming. Deploy backend. Help P3 debug integration. End-to-end test with P1 frontend. Fix critical bugs only. No new features. |
-| P3 — Orchestrator + Demo | Routing layer + data prep + demo engineering. Owns the validator rejection moment. | Build orchestrator routing skeleton, fully independent of P2. Download and prepare all GeoJSON: Palisades fire perimeter T+0, T+15, T+30 from NIFC. Query OSM for power lines, substations, traffic signals, roads in Pacific Palisades + Malibu. Build infrastructure.json dependency graph (nodes: transmission_line_A, substation_malibu, signal_PCH_1, signal_PCH_2, road_PCH). Verify cascade propagation logic independently. | Plug Featherless specialist agents and watsonx coordinator into orchestrator. Full integration test. Deliberately tune debris flow agent prompt so it outputs LOW initially — validator must reject for demo. Rehearse demo script. Stretch goal: SMS notification on dispatch. |
+| P2 — Backend + Physics + Agent Pipeline | Shared backend execution pipeline, physics, validator, API contract, AI provider wrappers. Most critical role. | Scaffold backend. Define output contract at hour 2, share immediately. Build physics module: Rothermel spread rate + threat level, deterministic cascade graph propagation, USGS M1 debris flow. Test each engine with assertions before touching agents. Build validator: three check functions, retry loop max 2, violation message format. Build Featherless specialist agent wrappers and IBM watsonx Granite coordinator wrapper with deterministic fallbacks. Wire backend orchestrator pipeline. Test POST /dispatch/wildfire/1 returns valid contract JSON. | Add real-time event streaming. Add scenario-file loader and geometry hooks when P3 hands off data. Deploy backend. Help P3 debug integration. End-to-end test with P1 frontend. Fix critical bugs only. No new features. |
+| P3 — Scenario Data + Integration + Demo | Scenario pack, real data prep, integration checks, and demo engineering. Owns the validator rejection moment. | Download and prepare all GeoJSON: Palisades fire perimeter T+0, T+15, T+30 from NIFC. Query OSM for power lines, substations, traffic signals, roads in Pacific Palisades + Malibu. Build `infrastructure.json`, `dependency_graph.json`, and `metadata.json` for `palisades_2025`. Verify the scenario pack independently against P2's contract. | Hand scenario pack to P2 for backend loading. Full integration test. Deliberately tune debris flow agent prompt/config so it outputs LOW initially — validator must reject for demo. Rehearse demo script. Stretch goal: SMS notification on dispatch. |
 
 > **P3 demo engineering note:** The physics validator must visibly reject at least one agent output during the demo. P3 deliberately tunes the debris flow agent system prompt so that without the violation message, the agent outputs LOW on the demo scenario (slope=34°, burn=78%, rain=0.75in/hr). The validator catches it, forces a replan, the agent corrects to HIGH. Test this at hour 20. This is the most important moment in the presentation.
 
@@ -290,17 +290,17 @@ Fallback rule: if Featherless or watsonx is unavailable during the demo, determi
 ### Hours 0–2: Kickoff
 - **P2:** Scaffold backend. Define and share output contract JSON. This is the only blocking dependency — do it first.
 - **P1:** Set up frontend. Create mock_response.json. Start building UI against it immediately.
-- **P3:** Set up environment. Start orchestrator routing skeleton. Download Palisades GeoJSON from NIFC.
+- **P3:** Set up environment. Start scenario pack folder. Download Palisades GeoJSON from NIFC.
 
 ### Hours 2–10: Core Build (All Three Independent)
 - **P1:** Full dashboard layout. Validator feed rendering mock events. Three agency panels with mock data. Map loading dark base tiles.
 - **P2:** Build physics module. Test each engine with assertions: `fire_threat_level(28, 35, 2.8)` must return CRITICAL. All three engines tested in isolation.
-- **P3:** Finish orchestrator routing. Prepare infrastructure.json dependency graph. Verify cascade propagation logic works in isolation.
+- **P3:** Prepare `infrastructure.json`, `dependency_graph.json`, and `metadata.json`. Verify scenario files match P2's node IDs.
 
 ### Hours 10–20: Agents + Map
 - **P1:** Load Palisades GeoJSON T+0 fire perimeter. Add power line polylines from OSM. Add substation markers. Add PCH road. Wire time slider to swap T+0/T+15/T+30. Add cascade pulse animation. Connect real-time event client.
 - **P2:** Build validator. Build Featherless wrappers for Hazard, Cascade, and Secondary agents. Build IBM watsonx.ai Granite wrapper for Coordinator. Keep deterministic fallbacks. Wire full pipeline. Test POST /dispatch/wildfire/1 via curl — must return valid JSON matching contract before moving on.
-- **P3:** Tune Featherless debris flow agent prompt for demo rejection. Plug agents into orchestrator. Prepare T+15 and T+30 GeoJSON. Test cascade propagation end-to-end.
+- **P3:** Tune Featherless debris flow agent prompt/config for demo rejection. Hand off T+15 and T+30 GeoJSON. Test cascade propagation end-to-end with P2.
 
 ### Hours 20–28: Integration
 - **P1:** Swap mock JSON for real API calls. Fix every map display bug — power lines turning red, pulse animations firing, road color changes. Validator feed populates live.
