@@ -33,3 +33,19 @@ curl -X POST http://localhost:8000/dispatch/wildfire/1
 ```bash
 PYTHONPYCACHEPREFIX=/private/tmp/stormos_pycache python3 -m pytest backend/tests
 ```
+
+### Optional AI Provider Environment
+
+The backend runs with deterministic fallbacks by default. Set these only when using live AI providers:
+
+```bash
+export FEATHERLESS_API_KEY=...
+export FEATHERLESS_MODEL=Qwen/Qwen2.5-7B-Instruct
+
+export WATSONX_API_KEY=...
+export WATSONX_PROJECT_ID=...
+export WATSONX_MODEL_ID=ibm/granite-3-8b-instruct
+export WATSONX_URL=https://us-south.ml.cloud.ibm.com
+```
+
+You can also provide `WATSONX_BEARER_TOKEN` directly instead of `WATSONX_API_KEY`.

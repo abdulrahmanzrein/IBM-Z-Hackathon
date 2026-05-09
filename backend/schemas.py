@@ -49,10 +49,18 @@ class NamedSource(BaseModel):
     mode: str
 
 
+class AIProviderStatus(BaseModel):
+    provider: str
+    model: str
+    fallback_used: bool
+    reason: str = ""
+
+
 class DataSources(BaseModel):
     weather: WeatherSource
     fire_perimeter: NamedSource
     infrastructure: NamedSource
+    ai_stack: dict[str, AIProviderStatus]
     physics: list[str]
 
 

@@ -5,7 +5,9 @@ from backend.agents.secondary import run_debris_flow_agent
 from backend.physics.cascade import compute_cascade
 from backend.physics.debris import compute_debris_physics
 from backend.physics.fire import compute_fire_physics
+from backend.services.featherless import run_featherless_json_agent
 from backend.services.weather import apply_demo_weather_floor, fetch_open_meteo_weather
+from backend.services.watsonx import run_watsonx_json_coordinator
 from backend.validator import MAX_RETRIES, make_event, validate_debris_agent
 
 
@@ -95,10 +97,28 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
     ]
 
     # Retry until the agent matches physics, max 2 retries.
+    ai_stack = {
+        "validator": {
+            "provider": "Deterministic Python",
+            "model": "physics_validator",
+            "fallback_used": False,
+            "reason": "",
+        }
+    }
     if timestep_state["run_validator_demo"]:
         debris_agent_output = None
         for attempt in range(1, MAX_RETRIES + 2):
-            debris_agent_output = run_debris_flow_agent(attempt)
+            fallback_debris_output = run_debris_flow_agent(attempt)
+            debris_agent_output, secondary_status = run_featherless_json_agent(
+                agent_name="secondary_agent",
+                system_prompt=(
+                    "You are StormOS Secondary Agent. Assess debris flow risk from "
+                    "the provided USGS M1 physics. Return JSON only."
+                ),
+                payload={"debris_physics": debris_physics, "attempt": attempt},
+                fallback_output=fallback_debris_output,
+            )
+            ai_stack["secondary_agent"] = secondary_status
             validation = validate_debris_agent(debris_physics, debris_agent_output, attempt)
             events.append(validation["event"])
             if validation["valid"]:
@@ -111,11 +131,52 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
             "onset_window": "not active at T+0",
             "affected_zones": [],
         }
+        ai_stack["secondary_agent"] = {
+            "provider": "Featherless",
+            "model": "not_called_at_t0",
+            "fallback_used": True,
+            "reason": "secondary hazard inactive at T+0",
+        }
 
     # Build agency-facing outputs after validation.
-    hazard_output = run_hazard_agent(fire_physics)
-    cascade_output = run_cascade_agent(cascade_physics, timestep)
-    coordinator_output = run_coordinator_agent(timestep)
+    fallback_hazard_output = run_hazard_agent(fire_physics)
+    hazard_output, hazard_status = run_featherless_json_agent(
+        agent_name="hazard_agent",
+        system_prompt=(
+            "You are StormOS Hazard Agent. Use the provided fire physics and "
+            "return JSON only."
+        ),
+        payload={"fire_physics": fire_physics, "timestep": timestep},
+        fallback_output=fallback_hazard_output,
+    )
+    ai_stack["hazard_agent"] = hazard_status
+
+    fallback_cascade_output = run_cascade_agent(cascade_physics, timestep)
+    cascade_output, cascade_status = run_featherless_json_agent(
+        agent_name="cascade_agent",
+        system_prompt=(
+            "You are StormOS Cascade Agent. Never contradict deterministic graph "
+            "status. Return JSON only."
+        ),
+        payload={"cascade_physics": cascade_physics, "timestep": timestep},
+        fallback_output=fallback_cascade_output,
+    )
+    ai_stack["cascade_agent"] = cascade_status
+
+    fallback_coordinator_output = run_coordinator_agent(timestep)
+    coordinator_output, coordinator_status = run_watsonx_json_coordinator(
+        payload={
+            "fire_physics": fire_physics,
+            "cascade_physics": cascade_physics,
+            "debris_physics": debris_physics,
+            "hazard": hazard_output,
+            "cascade": cascade_output,
+            "secondary": debris_agent_output,
+            "timestep": timestep,
+        },
+        fallback_output=fallback_coordinator_output,
+    )
+    ai_stack["coordinator"] = coordinator_status
     events.append(
         make_event(
             event_type="coordinator_done",
@@ -166,6 +227,7 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
                 "provider": "OpenStreetMap",
                 "mode": "planned",
             },
+            "ai_stack": ai_stack,
             "physics": ["Rothermel-inspired spread", "deterministic graph", "USGS M1-style debris flow"],
         },
         "events": events,
