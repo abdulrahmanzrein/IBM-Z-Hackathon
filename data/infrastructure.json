@@ -1,0 +1,61 @@
+{
+  "nodes": {
+    "transmission_line_A": {
+      "type": "power_line",
+      "status": "OPERATIONAL",
+      "label": "Malibu Transmission Line A",
+      "coordinates": [
+        [-118.7298, 34.0430],
+        [-118.7150, 34.0320],
+        [-118.6980, 34.0210]
+      ]
+    },
+    "substation_malibu": {
+      "type": "substation",
+      "status": "OPERATIONAL",
+      "label": "Malibu Substation",
+      "lat": 34.0195,
+      "lon": -118.6950
+    },
+    "signal_PCH_1": {
+      "type": "traffic_signal",
+      "status": "OPERATIONAL",
+      "label": "PCH Signal — Malibu Canyon Rd",
+      "lat": 34.0368,
+      "lon": -118.6814
+    },
+    "signal_PCH_2": {
+      "type": "traffic_signal",
+      "status": "OPERATIONAL",
+      "label": "PCH Signal — Las Virgenes Rd",
+      "lat": 34.0412,
+      "lon": -118.7023
+    },
+    "road_PCH": {
+      "type": "evacuation_route",
+      "status": "CLEAR",
+      "label": "Pacific Coast Highway",
+      "coordinates": [
+        [-118.6500, 34.0280],
+        [-118.6814, 34.0368],
+        [-118.7023, 34.0412],
+        [-118.7500, 34.0490],
+        [-118.8200, 34.0560]
+      ]
+    }
+  },
+  "dependencies": {
+    "substation_malibu": ["transmission_line_A"],
+    "signal_PCH_1":      ["substation_malibu"],
+    "signal_PCH_2":      ["substation_malibu"],
+    "road_PCH":          ["signal_PCH_1", "signal_PCH_2"]
+  },
+  "cascade_sequence": [
+    { "timestep": "T0",  "event": "fire_ignition",         "node": null },
+    { "timestep": "T15", "event": "power_line_failure",     "node": "transmission_line_A" },
+    { "timestep": "T15", "event": "substation_failure",     "node": "substation_malibu" },
+    { "timestep": "T15", "event": "traffic_signal_failure", "node": "signal_PCH_1" },
+    { "timestep": "T15", "event": "traffic_signal_failure", "node": "signal_PCH_2" },
+    { "timestep": "T30", "event": "evacuation_route_blocked", "node": "road_PCH" }
+  ]
+}
