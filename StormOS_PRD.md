@@ -90,6 +90,39 @@ StormOS should expose the forward prediction explicitly in the API and UI:
 }
 ```
 
+### Frontend Cascade State Timeline
+
+This table is the UI contract for the map. P1 should be able to build the cascade animation directly from it.
+
+| Object | T+0: Predicted / Pre-Failure | T+15: Cascade Starts | T+30: Secondary Hazard |
+|--------|------------------------------|----------------------|------------------------|
+| Fire perimeter | Ignition/initial polygon visible in hills above PCH | Expanded polygon intersects Transmission Line A | Expanded perimeter remains visible |
+| Prediction window | `Line A failure in 12 min if unmitigated` | `Cascade in progress` | `Secondary debris hazard active` |
+| Transmission Line A | `AT_RISK`, amber, highlighted as next failure | `FAILED`, red dashed line | `FAILED`, red dashed line |
+| Malibu Substation | `OPERATIONAL`, green circle | `FAILED`, red pulsing circle | `FAILED`, red circle |
+| PCH Signal 1 | `OPERATIONAL`, green square | `FAILED`, red square | `FAILED`, red square |
+| PCH Signal 2 | `OPERATIONAL`, green square | `FAILED`, red square | `FAILED`, red square |
+| PCH evacuation route | `CLEAR`, green route | `BLOCKED`, red dashed route | `BLOCKED`, red dashed route |
+| Residents affected | `4,200 exposed if PCH blocks` warning label | `4,200 residents with no clear exit` | Exposure label remains visible |
+| Debris-flow zone | Hidden | Hidden or low-opacity forecast | Visible translucent HIGH-risk polygon |
+| Agency panels | Preventive actions, priority `P2` | Emergency actions, priority `P1` | P1 updates include debris-flow hazard |
+
+### Causal Dependency Graph
+
+The map should visually communicate this dependency chain, not just color independent objects:
+
+```txt
+Fire perimeter projected path
+  -> Transmission Line A
+    -> Malibu Substation
+      -> PCH Signal 1
+      -> PCH Signal 2
+        -> PCH evacuation route
+          -> 4,200 residents exposed
+```
+
+If only one visual animation is polished, polish this sequence: fire approaches line, line flashes, pulse moves to substation, pulse moves to signals, PCH turns blocked, resident exposure label appears.
+
 ### Why the Cascade Visualization Is the Demo
 
 Click Dispatch. The fire perimeter polygon appears on the map. At T+0, StormOS predicts the fire will hit Transmission Line A inside the intervention window and shows the unmitigated cascade before it happens. At T+15 it crosses Transmission Line A — the line turns red. A pulse animation runs to Malibu Substation — it turns red. Another pulse runs to the PCH traffic signals — they turn red. PCH turns red. The product moment is that Fire, Utility, and Traffic were warned before this visible failure chain completed.
