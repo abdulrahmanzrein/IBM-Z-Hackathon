@@ -22,7 +22,12 @@ temp/
 # node_modules/
 # dist/
 # build/
-# __pycache__/
-# *.pyc
 # .venv/
 # venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local only — not for repo
+CLAUDE.md
