@@ -6,6 +6,7 @@ def run_debris_flow_agent(attempt: int) -> dict:
     visible rejection moment required by the PRD. Retry returns the corrected
     physics-aligned answer.
     """
+    # First try is intentionally wrong for the demo rejection.
     if attempt == 1:
         return {
             "agent": "debris_flow_agent",

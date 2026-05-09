@@ -1,4 +1,5 @@
 def run_coordinator_agent() -> dict:
+    # Three agencies get one concise tactical recommendation each.
     return {
         "priority": "P1",
         "agencies": {

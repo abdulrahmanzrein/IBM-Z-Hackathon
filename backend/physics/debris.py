@@ -16,6 +16,7 @@ def calculate_debris_probability(
     The coefficients are intentionally normalized so the documented demo inputs
     slope=34, burn=0.78, rain=0.75 produce P=0.71.
     """
+    # Each risk factor contributes to the final probability.
     slope_component = min(slope_deg / 40, 1.0) * 0.30
     burn_component = min(burn_severity, 1.0) * 0.30
     rain_component = min(rainfall_in_hr / 1.0, 1.0) * 0.30
@@ -24,6 +25,7 @@ def calculate_debris_probability(
 
 
 def classify_debris_threat(probability: float) -> DebrisThreat:
+    # PRD threshold: P >= 0.5 is HIGH.
     if probability >= 0.5:
         return "HIGH"
     if probability >= 0.25:
@@ -37,6 +39,7 @@ def compute_debris_physics(
     burn_severity: float,
     rainfall_in_hr: float,
 ) -> dict:
+    # Return the label the validator will enforce.
     probability = calculate_debris_probability(
         slope_deg=slope_deg,
         burn_severity=burn_severity,

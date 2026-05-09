@@ -7,6 +7,7 @@ RouteStatus = Literal["CLEAR", "DEGRADED", "BLOCKED"]
 
 
 DEFAULT_DEPENDENCY_GRAPH = {
+    # Power failure chain from the PRD.
     "transmission_line_A": ["substation_malibu"],
     "substation_malibu": ["signal_PCH_1", "signal_PCH_2"],
     "signal_PCH_1": ["road_PCH"],
@@ -23,6 +24,7 @@ def propagate_failures(
     statuses: dict[str, NodeStatus] = {node: "OPERATIONAL" for node in graph}
     queue = deque(failed_roots)
 
+    # Walk downstream and fail every dependent node.
     while queue:
         node = queue.popleft()
         if node not in statuses:
@@ -53,6 +55,7 @@ def route_status_from_cascade(cascade_status: dict[str, NodeStatus]) -> dict[str
 
 
 def compute_cascade(fire_crosses_line_a: bool) -> dict:
+    # Fire crossing Line A starts the cascade.
     failed_roots = ["transmission_line_A"] if fire_crosses_line_a else []
     cascade_status = propagate_failures(failed_roots)
     return {

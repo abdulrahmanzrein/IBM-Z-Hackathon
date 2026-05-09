@@ -27,6 +27,7 @@ def validate_debris_agent(debris_physics: dict, agent_output: dict, attempt: int
     expected = debris_physics["debris_threat"]
     actual = agent_output.get("threat_label")
 
+    # Block agent output if it contradicts debris physics.
     if actual != expected:
         inputs = debris_physics["inputs"]
         violation = (
