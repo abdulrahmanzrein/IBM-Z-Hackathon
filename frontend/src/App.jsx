@@ -8,13 +8,12 @@ import {
   Polyline,
   Marker,
   Tooltip,
+  Popup,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   Activity,
-  CheckCircle,
   Clock3,
-  Flame,
   Home,
   Layers,
   MapPin,
@@ -24,9 +23,7 @@ import {
   ShieldCheck,
   TrafficCone,
   TreePine,
-  Users,
   Wind,
-  XCircle,
   Zap,
 } from "lucide-react";
 
@@ -43,6 +40,8 @@ const scenarioByMinute = {
     signals: "OPERATIONAL",
     road: "CLEAR",
     phase: "Prediction",
+    next: "Line A failure predicted in 3 min",
+    order: "Pre-stage utility + traffic before the corridor fails.",
   },
   3: {
     label: "T+3",
@@ -53,6 +52,8 @@ const scenarioByMinute = {
     signals: "FAILED",
     road: "DEGRADED",
     phase: "Cascade",
+    next: "PCH signal loss spreading downstream",
+    order: "Switch load and move officers to PCH intersections.",
   },
   6: {
     label: "T+6",
@@ -63,37 +64,9 @@ const scenarioByMinute = {
     signals: "FAILED",
     road: "BLOCKED",
     phase: "Evacuation",
+    next: "Evacuation route compromised",
+    order: "Keep evacuees westbound and hold crews outside debris zone.",
   },
-};
-
-const fallbackAgency = {
-  0: [
-    { agency: "Fire IC", level: "ELEVATED", action: "Monitor spread near transmission corridor.", note: "Suppression assets staged." },
-    { agency: "Utility", level: "NORMAL", action: "Grid stable. Prepare contingency switching.", note: "Substation B available." },
-    { agency: "Traffic", level: "NORMAL", action: "Evacuation routes open.", note: "PCH operating normally." },
-  ],
-  3: [
-    { agency: "Fire IC", level: "CRITICAL", action: "Protect Line A. Redirect suppression assets.", note: "Fire perimeter crossed corridor." },
-    { agency: "Utility", level: "CRITICAL", action: "Switch load from Malibu Substation immediately.", note: "Downstream grid failure." },
-    { agency: "Traffic", level: "HIGH", action: "Prepare officers for signal outage on PCH.", note: "Signals expected to fail." },
-  ],
-  6: [
-    { agency: "Fire IC", level: "CRITICAL", action: "Protect evacuation corridor.", note: "Debris-flow risk HIGH above Malibu." },
-    { agency: "Utility", level: "FAILED", action: "Substation offline. Begin backup restoration.", note: "Line A + Substation failed." },
-    { agency: "Traffic", level: "CRITICAL", action: "Manual control on PCH. Blockage active.", note: "Road status BLOCKED." },
-  ],
-};
-
-const fallbackValidator = {
-  0: [{ type: "valid", title: "Physics computed", text: "Rothermel initialized. Infrastructure graph operational." }],
-  3: [
-    { type: "reject", title: "Agent rejected", text: "Debris agent output LOW. USGS M1 calculates P=0.71 HIGH. Forced replan." },
-    { type: "valid", title: "Agent validated", text: "Debris flow corrected to HIGH. Agencies updated." },
-  ],
-  6: [
-    { type: "reject", title: "Agent rejected", text: "Debris agent output LOW. USGS M1 calculates P=0.71 HIGH. Forced replan." },
-    { type: "valid", title: "Agent validated", text: "Debris flow corrected to HIGH. Agencies updated." },
-  ],
 };
 
 const GEOJSON_FILES = {
@@ -108,42 +81,78 @@ const signalA = [34.0368, -118.6814];
 const signalB = [34.0412, -118.7023];
 const roadFocus = [34.044, -118.72];
 const debrisZone = [[34.086, -118.54], [34.098, -118.515], [34.083, -118.49], [34.066, -118.505]];
+
+const communityMarkers = [
+  {
+    id: "palisades_village",
+    name: "Palisades Village",
+    homes: "1.8K homes",
+    status: "AT RISK",
+    position: [34.047, -118.526],
+    action: "Early evacuation alerts if Line A cascade reaches PCH.",
+  },
+  {
+    id: "malibu_bluffs",
+    name: "Malibu Bluffs",
+    homes: "1.1K homes",
+    status: "WATCH",
+    position: [34.058, -118.686],
+    action: "Keep westbound PCH movement open.",
+  },
+  {
+    id: "topanga_edge",
+    name: "Topanga Edge",
+    homes: "860 homes",
+    status: "EXPOSED",
+    position: [34.082, -118.604],
+    action: "Protect structures along the chaparral fuel edge.",
+  },
+  {
+    id: "pch_corridor",
+    name: "PCH Corridor",
+    homes: "4.2K exposed",
+    status: "EVAC ROUTE",
+    position: [34.036, -118.704],
+    action: "Manual traffic control if signals lose power.",
+  },
+];
+
 const operationalLayers = [
   {
     id: "fuel",
     label: "Heavy Chaparral Fuel",
-    shortLabel: "Vegetation",
+    shortLabel: "Fuel",
     risk: "HIGH",
     Icon: TreePine,
-    color: "#15803d",
+    color: "#166534",
     fill: "#22c55e",
     positions: [[34.092, -118.662], [34.111, -118.612], [34.102, -118.562], [34.074, -118.57], [34.062, -118.626]],
     detail: "Dense canyon fuel increases flame length and spotting potential.",
-    action: "Assign structure-defense resources along the fuel edge.",
+    action: "Assign structure-defense resources along this fuel edge.",
   },
   {
     id: "ember",
     label: "Wind-Driven Ember Corridor",
-    shortLabel: "Embers",
+    shortLabel: "Wind",
     risk: "CRITICAL",
     Icon: Wind,
     color: "#b45309",
     fill: "#f59e0b",
     positions: [[34.088, -118.644], [34.094, -118.61], [34.072, -118.548], [34.052, -118.558], [34.064, -118.62]],
-    detail: "Santa Ana wind alignment can carry embers ahead of the front.",
+    detail: "Wind alignment can carry embers ahead of the active front.",
     action: "Warn crews before spot fires appear near the corridor.",
   },
   {
     id: "evac",
     label: "Evacuation Control Area",
-    shortLabel: "Evac Zone",
-    risk: "AT_RISK",
+    shortLabel: "Evac",
+    risk: "AT RISK",
     Icon: Navigation,
     color: "#0369a1",
     fill: "#0ea5e9",
     positions: [[34.059, -118.735], [34.065, -118.668], [34.043, -118.632], [34.021, -118.694], [34.03, -118.765]],
     detail: "Traffic management needs manual control before signal failure.",
-    action: "Keep westbound PCH moving; block re-entry at failed signals.",
+    action: "Keep westbound PCH moving and block re-entry.",
   },
   {
     id: "homes",
@@ -160,7 +169,7 @@ const operationalLayers = [
   {
     id: "staging",
     label: "Responder Staging Area",
-    shortLabel: "Staging",
+    shortLabel: "Stage",
     risk: "READY",
     Icon: ShieldCheck,
     color: "#4338ca",
@@ -170,6 +179,7 @@ const operationalLayers = [
     action: "Stage fire, utility, and traffic teams outside the failure chain.",
   },
 ];
+
 const cascadeLinks = [
   [lineA[2], substation],
   [substation, signalA],
@@ -180,47 +190,35 @@ const cascadeLinks = [
 
 function lc(level) {
   if (!level) return "green";
-  const l = level.toUpperCase();
-  if (l === "OPERATIONAL" || l === "CLEAR" || l === "NORMAL") return "green";
-  if (l === "ELEVATED" || l === "HIGH" || l === "DEGRADED" || l === "AT_RISK") return "orange";
+  const l = level.toUpperCase().replace(" ", "_");
+  if (l === "OPERATIONAL" || l === "CLEAR" || l === "NORMAL" || l === "READY") return "green";
+  if (l === "ELEVATED" || l === "HIGH" || l === "DEGRADED" || l === "AT_RISK" || l === "WATCH" || l === "EXPOSED" || l === "EVAC_ROUTE") return "orange";
   return "red";
 }
 
 function markerIcon(kind, status) {
+  const label = kind === "substation" ? "S" : kind === "signal" ? "!" : "4.2K";
   return L.divIcon({
     className: "",
-    html: `<div class="asset-pin asset-${kind} asset-${lc(status)}"><span>${kind === "substation" ? "S" : kind === "signal" ? "!" : "4.2K"}</span></div>`,
-    iconSize: kind === "exposure" ? [54, 34] : [34, 34],
-    iconAnchor: kind === "exposure" ? [27, 17] : [17, 17],
+    html: `<div class="asset-pin asset-${kind} asset-${lc(status)}"><span>${label}</span></div>`,
+    iconSize: kind === "exposure" ? [58, 34] : [34, 34],
+    iconAnchor: kind === "exposure" ? [29, 17] : [17, 17],
   });
 }
 
-function parseAgencies(apiData) {
-  const agencies = apiData?.agents?.coordinator?.agencies;
-  if (!agencies) return null;
-  const map = { fire_incident_command: "Fire IC", utility_operator: "Utility", traffic_management: "Traffic" };
-  return Object.entries(agencies).map(([key, val]) => {
-    const text = (val.notifications || []).join(" ").toUpperCase();
-    const level = text.includes("CRITICAL") || text.includes("FAILED") || text.includes("BLOCKED")
-      ? "CRITICAL"
-      : text.includes("HIGH") || text.includes("DEGRADED")
-        ? "HIGH"
-        : text.includes("ELEVATED")
-          ? "ELEVATED"
-          : "NORMAL";
-    return { agency: map[key] || key, level, action: val.recommendation, note: (val.notifications || []).join(" · ") };
+function communityIcon(status) {
+  return L.divIcon({
+    className: "",
+    html: `
+      <div class="community-marker community-${lc(status)}">
+        <div class="roof-grid">
+          <i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+      </div>
+    `,
+    iconSize: [42, 34],
+    iconAnchor: [21, 17],
   });
-}
-
-function parseEvents(apiData) {
-  if (!apiData) return null;
-  return apiData.events
-    .filter((e) => e.type === "agent_rejected" || e.type === "agent_validated")
-    .map((e) => ({
-      type: e.type === "agent_rejected" ? "reject" : "valid",
-      title: e.type === "agent_rejected" ? "Agent rejected" : "Agent validated",
-      text: e.type === "agent_rejected" ? e.violation : `${e.agent} approved.`,
-    }));
 }
 
 export default function App() {
@@ -275,11 +273,11 @@ export default function App() {
   const fireLevel = apiData?.physics?.threat_level || state.fireLevel;
   const utilityStatus = apiData?.cascade_status?.substation_malibu || state.substation;
   const routeStatus = apiData?.evacuation_routes?.road_PCH || state.road;
-  const validatorEvts = parseEvents(apiData) || fallbackValidator[minute];
-  const agencyActions = parseAgencies(apiData) || fallbackAgency[minute];
   const windMph = apiData?.data_sources?.weather?.effective?.wind_mph ?? 35;
   const rainInHr = apiData?.data_sources?.weather?.effective?.rainfall_in_hr ?? (minute ? 0.75 : 0);
   const trigger = apiData?.data_sources?.scenario?.trigger_source || (minute >= 3 ? "geometry_intersection" : "827m to Line A");
+  const nextFailure = apiData?.prediction?.next_failure?.replaceAll("_", " ") || state.next;
+  const dispatchSummary = apiData?.agents?.coordinator?.dispatch_summary || state.order;
 
   const cascadeNodes = [
     { label: "Line A", status: apiData?.cascade_status?.transmission_line_A || state.power, Icon: Zap },
@@ -287,27 +285,6 @@ export default function App() {
     { label: "PCH Signals", status: apiData?.cascade_status?.signal_PCH_1 || state.signals, Icon: TrafficCone },
     { label: "PCH Route", status: routeStatus, Icon: Route },
   ];
-  const responderPriorities = useMemo(() => {
-    if (minute === 0) {
-      return [
-        "Protect Line A before the fire reaches the corridor.",
-        "Pre-stage manual traffic control at PCH signals.",
-        "Notify Utility to prepare backup feed switching.",
-      ];
-    }
-    if (minute === 3) {
-      return [
-        "Switch load away from Malibu Substation immediately.",
-        "Move evacuation traffic through PCH before blockage.",
-        "Watch ember corridor for spot fires east of the front.",
-      ];
-    }
-    return [
-      "Keep responders outside the debris-flow polygon.",
-      "Maintain PCH closure and route evacuees westbound.",
-      "Prioritize exposed homes inside the structure cluster.",
-    ];
-  }, [minute]);
 
   const dispatch = async () => {
     setLoading(true);
@@ -321,11 +298,35 @@ export default function App() {
 
   return (
     <div className="shell">
-      <MapContainer center={[34.074, -118.615]} zoom={12} zoomControl className="map">
+      <MapContainer center={[34.067, -118.63]} zoom={12} zoomControl className="map">
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='Terrain &copy; Esri'
+          className="hillshade-layer"
+          opacity={0.72}
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
+          zIndex={1}
         />
+        <TileLayer
+          attribution='Topographic map &copy; Esri, HERE, Garmin, OpenStreetMap contributors'
+          className="topo-layer"
+          opacity={0.88}
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+          zIndex={2}
+        />
+
+        {communityMarkers.map((community) => (
+          <Marker key={community.id} position={community.position} icon={communityIcon(community.status)}>
+            <Tooltip permanent direction="right" className="community-label">
+              <span>{community.name}</span>
+              <strong>{community.homes}</strong>
+            </Tooltip>
+            <Popup className="incident-popup">
+              <strong>{community.name}</strong>
+              <span>{community.status} - {community.homes}</span>
+              <em>{community.action}</em>
+            </Popup>
+          </Marker>
+        ))}
 
         {operationalLayers.map((layer) => visibleLayers[layer.id] && (
           <Polygon
@@ -335,35 +336,50 @@ export default function App() {
               className: `ops-polygon ops-${layer.id}`,
               color: layer.color,
               fillColor: layer.fill,
-              fillOpacity: layer.id === "staging" ? 0.2 : 0.24,
-              opacity: 0.92,
+              fillOpacity: layer.id === "staging" ? 0.18 : 0.28,
+              opacity: 0.95,
               weight: 2,
               dashArray: layer.id === "evac" || layer.id === "staging" ? "8 6" : "",
             }}
           >
-            <Tooltip sticky>
-              {layer.label} · {layer.risk}<br />
-              {layer.detail}
+            <Tooltip sticky className="quiet-tooltip">
+              <span>{layer.label}</span>
+              <strong>{layer.risk}</strong>
             </Tooltip>
+            <Popup className="incident-popup">
+              <strong>{layer.label}</strong>
+              <span>{layer.detail}</span>
+              <em>{layer.action}</em>
+            </Popup>
           </Polygon>
         ))}
 
         {fireGeoJSON && (
           <>
-            <Polygon positions={fireGeoJSON} pathOptions={{ className: "fire-halo", color: "#dc2626", fillOpacity: 0, weight: 10 }} />
-            <Polygon positions={fireGeoJSON} pathOptions={{ className: "fire-front", color: "#991b1b", fillColor: "#f97316", fillOpacity: 0.42, weight: 2 }} />
+            <Polygon positions={fireGeoJSON} pathOptions={{ className: "fire-halo", color: "#dc2626", fillOpacity: 0, weight: 12 }} />
+            <Polygon positions={fireGeoJSON} pathOptions={{ className: "fire-front", color: "#991b1b", fillColor: "#f97316", fillOpacity: 0.44, weight: 2 }}>
+              <Tooltip sticky className="quiet-tooltip">
+                <span>Fire perimeter</span>
+                <strong>{fireLevel}</strong>
+              </Tooltip>
+              <Popup className="incident-popup">
+                <strong>Active Fire Perimeter</strong>
+                <span>Wind {windMph.toFixed(0)} mph. Trigger: {trigger.replaceAll("_", " ")}.</span>
+                <em>{state.order}</em>
+              </Popup>
+            </Polygon>
           </>
         )}
 
         {osmData?.pch_segments?.map((seg, i) => (
-          <Polyline key={`pch-casing-${i}`} positions={seg} pathOptions={{ color: "#111827", weight: 12, opacity: 0.54 }} />
+          <Polyline key={`pch-casing-${i}`} positions={seg} pathOptions={{ color: "#020617", weight: 13, opacity: 0.62 }} />
         ))}
         {osmData?.pch_segments?.map((seg, i) => (
-          <Polyline key={`pch-active-${i}`} positions={seg} pathOptions={{ color: colors.road, weight: 5, opacity: 0.86 }} />
+          <Polyline key={`pch-active-${i}`} positions={seg} pathOptions={{ color: colors.road, weight: 5, opacity: 0.92 }} />
         ))}
 
         {osmData?.all_power_lines?.slice(1).map((pl, i) => (
-          <Polyline key={`pl-${i}`} positions={pl.coordinates} pathOptions={{ color: "#64748b", weight: 1, opacity: 0.22, dashArray: "5 5" }} />
+          <Polyline key={`pl-${i}`} positions={pl.coordinates} pathOptions={{ color: "#475569", weight: 1, opacity: 0.18, dashArray: "5 5" }} />
         ))}
 
         {cascadeLinks.map((link, i) => (
@@ -374,13 +390,13 @@ export default function App() {
               className: minute >= 3 ? "cascade-link cascade-live" : "cascade-link",
               color: minute >= 3 ? "#ef4444" : "#0ea5e9",
               weight: 3,
-              opacity: minute >= 3 ? 0.92 : 0.5,
+              opacity: minute >= 3 ? 0.95 : 0.58,
               dashArray: "7 9",
             }}
           />
         ))}
 
-        <Polyline positions={lineA} pathOptions={{ color: "#111827", weight: 9, opacity: 0.9 }} />
+        <Polyline positions={lineA} pathOptions={{ color: "#020617", weight: 11, opacity: 0.92 }} />
         <Polyline
           positions={lineA}
           pathOptions={{
@@ -391,198 +407,125 @@ export default function App() {
             opacity: 1,
           }}
         >
-          <Tooltip sticky>Transmission Line A · {apiData?.cascade_status?.transmission_line_A || state.power}</Tooltip>
+          <Tooltip permanent direction="top" className="map-label label-line">
+            <span>Line A</span>
+            <strong>{apiData?.cascade_status?.transmission_line_A || state.power}</strong>
+          </Tooltip>
+          <Popup className="incident-popup">
+            <strong>Transmission Line A</strong>
+            <span>{nextFailure}</span>
+            <em>Responder action: protect corridor and switch load before downstream failure.</em>
+          </Popup>
         </Polyline>
 
         <Marker position={substation} icon={markerIcon("substation", utilityStatus)}>
-          <Tooltip>Malibu Substation · {utilityStatus}</Tooltip>
+          <Tooltip>Malibu Substation - {utilityStatus}</Tooltip>
+          <Popup className="incident-popup">
+            <strong>Malibu Substation</strong>
+            <span>Status: {utilityStatus}. Depends on Line A.</span>
+            <em>Utility: switch to backup feed when Line A is threatened.</em>
+          </Popup>
         </Marker>
 
         {osmData?.pch_signals?.map((s, i) => (
           <Marker key={`sig-${i}`} position={[s.lat, s.lon]} icon={markerIcon("signal", state.signals)}>
-            <Tooltip>PCH Signal · {state.signals}</Tooltip>
+            <Tooltip>PCH Signal - {state.signals}</Tooltip>
+            <Popup className="incident-popup">
+              <strong>PCH Traffic Signal</strong>
+              <span>Status: {apiData?.cascade_status?.signal_PCH_1 || state.signals}.</span>
+              <em>Traffic: prepare manual control before grid failure.</em>
+            </Popup>
           </Marker>
         ))}
 
         <Marker position={[34.052, -118.675]} icon={markerIcon("exposure", routeStatus)}>
-          <Tooltip>Residents exposed if PCH blocks · 4,200</Tooltip>
+          <Tooltip>4,200 residents exposed if PCH blocks</Tooltip>
+          <Popup className="incident-popup">
+            <strong>Population Exposure</strong>
+            <span>Residents become harder to move if PCH blocks.</span>
+            <em>Evacuation: prioritize alerts inside the exposure cluster.</em>
+          </Popup>
         </Marker>
 
         {showDebris && (
-          <Polygon positions={debrisZone} pathOptions={{ className: "debris-zone", color: "#92400e", fillColor: "#f59e0b", fillOpacity: 0.32, weight: 2 }}>
-            <Tooltip sticky>Debris flow zone · HIGH</Tooltip>
+          <Polygon positions={debrisZone} pathOptions={{ className: "debris-zone", color: "#92400e", fillColor: "#f59e0b", fillOpacity: 0.34, weight: 2 }}>
+            <Tooltip sticky className="quiet-tooltip">
+              <span>Debris-flow zone</span>
+              <strong>HIGH</strong>
+            </Tooltip>
+            <Popup className="incident-popup">
+              <strong>Post-Fire Debris Flow Zone</strong>
+              <span>Rain {rainInHr.toFixed(2)} in/hr with burned slopes above Malibu.</span>
+              <em>Keep responders and evacuees outside this polygon.</em>
+            </Popup>
           </Polygon>
         )}
       </MapContainer>
 
       <div className="map-vignette" />
 
-      <aside className="left-dock">
-        <section className="hero-panel">
-          <div className="brand-row">
-            <span className="status-dot" />
-            <span>StormOS Command</span>
-          </div>
-          <h1>Palisades Cascade</h1>
-          <p className="hero-copy">Forward prediction for fire, utility, and traffic teams before evacuation infrastructure fails.</p>
-          <div className="hero-meta">
-            <span><MapPin size={13} /> Malibu/PCH</span>
-            <span><Clock3 size={13} /> {state.label}</span>
-          </div>
-        </section>
-
-        <section className="status-grid">
-          <div className={`mini-card mini-${lc(fireLevel)}`}>
-            <Flame size={16} />
-            <span>Fire</span>
-            <strong>{fireLevel}</strong>
-          </div>
-          <div className={`mini-card mini-${lc(utilityStatus)}`}>
-            <Zap size={16} />
-            <span>Grid</span>
-            <strong>{utilityStatus}</strong>
-          </div>
-          <div className={`mini-card mini-${lc(routeStatus)}`}>
-            <Route size={16} />
-            <span>PCH</span>
-            <strong>{routeStatus}</strong>
-          </div>
-          <div className="mini-card mini-blue">
-            <Users size={16} />
-            <span>Exposure</span>
-            <strong>4.2K</strong>
-          </div>
-        </section>
-
-        <section className="data-panel">
+      <header className="command-bar">
+        <div className="brand-lockup">
+          <span className="status-dot" />
           <div>
-            <span>Wind</span>
-            <strong>{windMph.toFixed(0)} mph</strong>
+            <strong>StormOS</strong>
+            <span><MapPin size={12} /> Palisades / PCH</span>
           </div>
-          <div>
-            <span>Rain</span>
-            <strong>{rainInHr.toFixed(2)} in/hr</strong>
-          </div>
-          <div>
-            <span>Trigger</span>
-            <strong>{trigger.replaceAll("_", " ")}</strong>
-          </div>
-        </section>
+        </div>
 
-        <section className="layer-panel">
-          <div className="section-heading">
-            <Layers size={14} />
-            <span>Responder Layers</span>
-          </div>
-          <div className="layer-grid">
-            {operationalLayers.map(({ id, shortLabel, Icon, risk }) => (
-              <button
-                key={id}
-                className={visibleLayers[id] ? "layer-chip active" : "layer-chip"}
-                onClick={() => setVisibleLayers((current) => ({ ...current, [id]: !current[id] }))}
-              >
-                <Icon size={13} />
-                <span>{shortLabel}</span>
-                <strong>{risk}</strong>
-              </button>
-            ))}
-          </div>
-        </section>
+        <nav className="timeline-bar">
+          {steps.map((step) => (
+            <button
+              key={step}
+              className={step === minute ? "time-step active" : "time-step"}
+              onClick={() => { setMinute(step); setApiData(null); }}
+            >
+              <span>{scenarioByMinute[step].label}</span>
+              <strong>{scenarioByMinute[step].phase}</strong>
+            </button>
+          ))}
+        </nav>
 
         <button className="dispatch-btn" onClick={dispatch} disabled={loading}>
           <Radio size={16} />
-          {loading ? "Dispatching" : apiData ? "Run Again" : "Dispatch Agencies"}
+          {loading ? "Running" : apiData ? "Refresh Dispatch" : "Run Dispatch"}
         </button>
-      </aside>
+      </header>
 
-      <nav className="timeline-bar">
-        {steps.map((step) => (
+      <aside className="layer-rail">
+        <div className="rail-title">
+          <Layers size={15} />
+          <span>Layers</span>
+        </div>
+        {operationalLayers.map(({ id, shortLabel, Icon, risk }) => (
           <button
-            key={step}
-            className={step === minute ? "time-step active" : "time-step"}
-            onClick={() => { setMinute(step); setApiData(null); }}
+            key={id}
+            className={visibleLayers[id] ? "layer-chip active" : "layer-chip"}
+            onClick={() => setVisibleLayers((current) => ({ ...current, [id]: !current[id] }))}
+            title={`${shortLabel}: ${risk}`}
           >
-            <span>{scenarioByMinute[step].label}</span>
-            <strong>{scenarioByMinute[step].phase}</strong>
+            <Icon size={16} />
+            <span>{shortLabel}</span>
           </button>
         ))}
-      </nav>
-
-      <aside className="right-dock">
-        <section className="panel priority-panel">
-          <div className="panel-heading">
-            <span>Responder Priorities</span>
-            <strong>{state.label}</strong>
-          </div>
-          <ol className="priority-list">
-            {responderPriorities.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ol>
-        </section>
-
-        <section className="panel intel-panel">
-          <div className="panel-heading">
-            <span>Map Intelligence</span>
-            <strong>{operationalLayers.filter((layer) => visibleLayers[layer.id]).length} Layers</strong>
-          </div>
-          <div className="intel-list">
-            {operationalLayers.filter((layer) => visibleLayers[layer.id]).map(({ id, label, risk, action, Icon }) => (
-              <div key={id} className={`intel-row intel-${id}`}>
-                <Icon size={15} />
-                <div>
-                  <strong>{label}</strong>
-                  <span>{action}</span>
-                </div>
-                <em>{risk}</em>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-heading">
-            <span>Physics Validator</span>
-            {apiData && <strong>LIVE</strong>}
-          </div>
-          <div className="feed">
-            {validatorEvts.map((ev, i) => (
-              <div key={i} className={`feed-item feed-${ev.type}`}>
-                <div className="feed-top">
-                  {ev.type === "reject" ? <XCircle size={14} /> : <CheckCircle size={14} />}
-                  <strong>{ev.title}</strong>
-                </div>
-                <p>{ev.text}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel agency-panel">
-          <div className="panel-heading">
-            <span>Agency Actions</span>
-            <strong>{state.phase}</strong>
-          </div>
-          <div className="feed">
-            {agencyActions.map((item) => (
-              <div key={item.agency} className={`feed-item agency-${lc(item.level)}`}>
-                <div className="feed-top">
-                  <strong>{item.agency}</strong>
-                  <span className={`badge badge-${lc(item.level)}`}>{item.level}</span>
-                </div>
-                <p>{item.action}</p>
-                <small>{item.note}</small>
-              </div>
-            ))}
-          </div>
-        </section>
       </aside>
+
+      <section className="map-alert">
+        <div className={`severity-badge severity-${lc(fireLevel)}`}>{state.label} / {fireLevel}</div>
+        <strong>{nextFailure}</strong>
+        <span>{dispatchSummary}</span>
+        <div className="decision-facts">
+          <span><Wind size={13} /> {windMph.toFixed(0)} mph</span>
+          <span><Clock3 size={13} /> {state.phase}</span>
+          <span><Route size={13} /> {routeStatus}</span>
+        </div>
+      </section>
 
       <section className="cascade-strip">
         {cascadeNodes.map(({ label, status, Icon }, i) => (
           <div key={label} className="cascade-node-wrap">
             <div className={`cascade-node node-${lc(status)}`}>
-              <Icon size={16} />
+              <Icon size={15} />
               <span>{label}</span>
               <strong>{status}</strong>
             </div>
@@ -590,12 +533,6 @@ export default function App() {
           </div>
         ))}
       </section>
-
-      <div className="legend-pill">
-        <span><i className="dot green" /> Operational</span>
-        <span><i className="dot orange" /> At Risk</span>
-        <span><i className="dot red" /> Failed</span>
-      </div>
     </div>
   );
 }

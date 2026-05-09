@@ -39,6 +39,10 @@ def test_dispatch_t3_runs_validator_rejection():
         "agent_validated",
         "coordinator_done",
     ]
+    assert data["agents"]["hazard"]["role"] == "Fire behavior and exposure specialist"
+    assert data["agents"]["hazard"]["recommended_actions"][0]["agency"] == "fire_incident_command"
+    assert data["agents"]["cascade"]["dependency_chain"][0] == "transmission_line_A"
+    assert data["agents"]["coordinator"]["dispatch_summary"]
 
 
 def test_dispatch_t6_keeps_cascade_failed_and_debris_high():
@@ -51,6 +55,8 @@ def test_dispatch_t6_keeps_cascade_failed_and_debris_high():
     assert data["prediction"]["status"] == "secondary_hazard_active"
     assert data["cascade_status"]["substation_malibu"] == "FAILED"
     assert data["physics"]["debris_threat"] == "HIGH"
+    assert data["agents"]["secondary"]["confidence"] >= 0.8
+    assert data["agents"]["coordinator"]["agencies"]["traffic_management"]["map_target"] == "PCH_evacuation_corridor"
 
 
 def test_dispatch_rejects_invalid_timestep():
