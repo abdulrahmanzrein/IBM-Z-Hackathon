@@ -12,6 +12,9 @@ def test_dispatch_t0_keeps_cascade_clear():
     assert response.status_code == 200
     data = response.json()
     assert data["timestep"] == 0
+    assert data["prediction"]["prediction_window_min"] == 12
+    assert data["prediction"]["next_failure"] == "transmission_line_A"
+    assert data["prediction"]["status"] == "predicted"
     assert data["cascade_status"]["transmission_line_A"] == "OPERATIONAL"
     assert data["evacuation_routes"]["road_PCH"] == "CLEAR"
     assert "agent_rejected" not in [event["type"] for event in data["events"]]
@@ -23,6 +26,8 @@ def test_dispatch_t15_runs_validator_rejection():
     assert response.status_code == 200
     data = response.json()
     assert data["timestep"] == 15
+    assert data["prediction"]["status"] == "cascade_in_progress"
+    assert "road_PCH BLOCKED" in data["prediction"]["cascade_if_unmitigated"]
     assert data["cascade_status"]["transmission_line_A"] == "FAILED"
     assert data["evacuation_routes"]["road_PCH"] == "BLOCKED"
     assert [event["type"] for event in data["events"]] == [
@@ -39,6 +44,8 @@ def test_dispatch_t30_keeps_cascade_failed_and_debris_high():
     assert response.status_code == 200
     data = response.json()
     assert data["timestep"] == 30
+    assert data["prediction"]["next_failure"] == "debris_flow_zone_malibu"
+    assert data["prediction"]["status"] == "secondary_hazard_active"
     assert data["cascade_status"]["substation_malibu"] == "FAILED"
     assert data["physics"]["debris_threat"] == "HIGH"
 

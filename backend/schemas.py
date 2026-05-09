@@ -22,6 +22,14 @@ class PhysicsSummary(BaseModel):
     debris_threat: DebrisThreat
 
 
+class PredictionSummary(BaseModel):
+    prediction_window_min: int
+    next_failure: str
+    status: str
+    cascade_if_unmitigated: list[str]
+    preventive_actions: dict[str, str]
+
+
 class EffectiveWeather(BaseModel):
     wind_mph: float
     rainfall_in_hr: float
@@ -79,6 +87,7 @@ class DispatchResponse(BaseModel):
     timestep_label: str
     location: Location
     physics: PhysicsSummary
+    prediction: PredictionSummary
     cascade_status: dict[str, NodeStatus]
     evacuation_routes: dict[str, RouteStatus]
     agents: dict[str, dict[str, Any]]

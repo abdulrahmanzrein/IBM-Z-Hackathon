@@ -57,6 +57,59 @@ def supported_timesteps() -> tuple[int, ...]:
     return tuple(TIMESTEP_STATE.keys())
 
 
+def build_prediction(timestep: int) -> dict:
+    if timestep == 0:
+        return {
+            "prediction_window_min": 12,
+            "next_failure": "transmission_line_A",
+            "status": "predicted",
+            "cascade_if_unmitigated": [
+                "substation_malibu FAILED",
+                "signal_PCH_1 FAILED",
+                "signal_PCH_2 FAILED",
+                "road_PCH BLOCKED",
+            ],
+            "preventive_actions": {
+                "fire_incident_command": "Protect Transmission Line A now.",
+                "utility_operator": "Switch load to Substation B.",
+                "traffic_management": "Deploy officers to PCH signals.",
+            },
+        }
+
+    if timestep == 15:
+        return {
+            "prediction_window_min": 0,
+            "next_failure": "transmission_line_A",
+            "status": "cascade_in_progress",
+            "cascade_if_unmitigated": [
+                "substation_malibu FAILED",
+                "signal_PCH_1 FAILED",
+                "signal_PCH_2 FAILED",
+                "road_PCH BLOCKED",
+            ],
+            "preventive_actions": {
+                "fire_incident_command": "Protect exposed evacuation corridor.",
+                "utility_operator": "Complete emergency switching to Substation B.",
+                "traffic_management": "Deploy officers to blocked PCH intersections.",
+            },
+        }
+
+    return {
+        "prediction_window_min": 0,
+        "next_failure": "debris_flow_zone_malibu",
+        "status": "secondary_hazard_active",
+        "cascade_if_unmitigated": [
+            "road_PCH BLOCKED",
+            "debris_flow_zone_malibu HIGH",
+        ],
+        "preventive_actions": {
+            "fire_incident_command": "Pre-position crews outside debris-flow zone.",
+            "utility_operator": "Keep repair crews clear of burned slopes.",
+            "traffic_management": "Maintain PCH closure and reroute evacuees.",
+        },
+    }
+
+
 def execute_wildfire_dispatch(timestep: int) -> dict:
     timestep_state = TIMESTEP_STATE[timestep]
     conditions = DEMO_SCENARIO["conditions"]
@@ -198,6 +251,7 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
             "debris_probability": debris_physics["debris_probability"],
             "debris_threat": debris_physics["debris_threat"],
         },
+        "prediction": build_prediction(timestep),
         "cascade_status": cascade_physics["cascade_status"],
         "evacuation_routes": cascade_physics["evacuation_routes"],
         "agents": {

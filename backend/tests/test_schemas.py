@@ -11,5 +11,6 @@ def test_dispatch_response_matches_schema():
     parsed = DispatchResponse.model_validate(response.json())
     assert parsed.disaster_type == "wildfire"
     assert parsed.timestep == 15
+    assert parsed.prediction.status == "cascade_in_progress"
     assert parsed.physics.threat_level == "CRITICAL"
     assert parsed.events[1].type == "agent_rejected"
