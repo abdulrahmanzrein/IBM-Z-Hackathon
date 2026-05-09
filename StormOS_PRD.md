@@ -9,7 +9,7 @@
 | Hackathon | IBM Z × UNSA Sheridan 2026 (Virtual, May 8–11) |
 | Disaster scope | Wildfire only. One scenario, executed completely. |
 | Location | Pacific Palisades & Malibu, Los Angeles, CA (2025 Palisades Fire) |
-| Core innovation | Physics-validated infrastructure cascade intelligence: AI recommendations are blocked unless they match deterministic fire, grid, traffic, and debris-flow ground truth. |
+| Core innovation | Forward prediction of wildfire infrastructure cascades, with physics validation blocking AI recommendations unless they match deterministic fire, grid, traffic, and debris-flow ground truth. |
 | Cascade chain | Fire burns power line → substation fails → traffic signals go dark → PCH blocks → residents cannot evacuate |
 | Agencies coordinated | Fire Incident Command + Utility Operator + Traffic Management |
 | Real data | 2025 Palisades Fire GeoJSON (NIFC) + OSM infrastructure + Open-Meteo weather |
@@ -23,13 +23,13 @@
 
 ## 1. What StormOS Is
 
-> **StormOS is a multi-agent AI system that detects when a wildfire is causing an infrastructure cascade failure, validates every AI recommendation against deterministic physics, and delivers coordinated tactical instructions to three agency commanders simultaneously — before the cascade kills someone.**
+> **StormOS is a multi-agent AI system that predicts when a wildfire will trigger an infrastructure cascade, validates every AI recommendation against deterministic physics, and delivers coordinated tactical instructions to three agency commanders before the cascade blocks evacuation.**
 
 StormOS is best understood as a **cascade intelligence layer for wildfire Emergency Operations Centers (EOCs)**. It is not a fire detection tool, an evacuation alert platform, a public wildfire app, or a replacement for incident commanders. Existing tools — Pano AI, Watch Duty, Genasys, Technosylva — cover parts of those jobs.
 
 StormOS answers the question none of them answer:
 
-> When this fire crosses this power line — which substation fails, which traffic signals go dark, which evacuation route blocks, and what do three different agency commanders need to do in the next 12 minutes?
+> At the current wind, slope, and fire perimeter, which power line fails next, what fails downstream, how long until evacuation access collapses, and what do three agency commanders need to do before that window closes?
 
 The product wedge is narrow on purpose:
 
@@ -56,21 +56,43 @@ The product wedge is narrow on purpose:
 
 ## 2. The Cascade — This Is the Product
 
-StormOS focuses on the failure chain that makes a wildfire become a multi-agency infrastructure emergency. The fire burns power lines. Power lines kill substations. Substations kill traffic signals. Traffic signals block PCH. People cannot get out. That chain can unfold in minutes and crosses separate agency systems with no guaranteed shared picture of what is happening.
+StormOS focuses on the failure chain that makes a wildfire become a multi-agency infrastructure emergency. The fire burns power lines. Power lines kill substations. Substations kill traffic signals. Traffic signals block PCH. People cannot get out. That chain can unfold in minutes and crosses separate agency systems with no guaranteed shared picture of what is about to happen.
 
-That chain is deterministic, predictable, and modelable with published physics. StormOS models it in real time and coordinates the response before the chain completes.
+That chain is deterministic, predictable, and modelable with published physics. StormOS models it forward in time, identifies the next likely infrastructure failure, calculates the unmitigated downstream cascade, and coordinates agency action before the chain completes.
 
-| Step | Event | Physics Engine | Agency Triggered |
-|------|-------|---------------|-----------------|
-| 1 | Fire perimeter crosses Transmission Line A | Rothermel spread + GeoJSON polygon intersection | Fire IC: adjust suppression to protect line |
-| 2 | Line A fails → Malibu Substation loses power | Deterministic graph propagation | Utility: begin emergency switching on Substation B |
-| 3 | Substation fails → PCH traffic signals go dark | Deterministic graph propagation | Traffic: deploy manual officers to PCH now |
-| 4 | PCH blocked → 4,200 residents have no exit | Cascade completion event | All three agencies: P1 CRITICAL. 12-minute window. |
-| 5 | Debris flow HIGH on burned slopes above Malibu | USGS M1: slope=34°, burn=78%, rain=0.75in/hr → P=0.71 | Fire IC + Utility: secondary hazard pre-position |
+| Step | Prediction / Event | Physics Engine | Agency Triggered |
+|------|--------------------|---------------|-----------------|
+| 1 | Fire projected to cross Transmission Line A within the action window | Rothermel spread + GeoJSON polygon intersection | Fire IC: protect line before contact |
+| 2 | If Line A fails, Malibu Substation will lose upstream power | Deterministic graph propagation | Utility: begin emergency switching on Substation B before outage |
+| 3 | If substation fails, PCH traffic signals will go dark | Deterministic graph propagation | Traffic: deploy manual officers before signal loss |
+| 4 | If signals fail, PCH evacuation route becomes BLOCKED for 4,200 residents | Cascade completion event | All three agencies: P1 CRITICAL. 12-minute intervention window. |
+| 5 | Debris flow risk becomes HIGH on burned slopes above Malibu | USGS M1: slope=34°, burn=78%, rain=0.75in/hr → P=0.71 | Fire IC + Utility: pre-position for secondary hazard |
+
+### Prediction Output
+
+StormOS should expose the forward prediction explicitly in the API and UI:
+
+```json
+{
+  "prediction_window_min": 12,
+  "next_failure": "transmission_line_A",
+  "cascade_if_unmitigated": [
+    "substation_malibu FAILED",
+    "signal_PCH_1 FAILED",
+    "signal_PCH_2 FAILED",
+    "road_PCH BLOCKED"
+  ],
+  "preventive_actions": {
+    "fire_incident_command": "Protect Transmission Line A now.",
+    "utility_operator": "Switch load to Substation B.",
+    "traffic_management": "Deploy officers to PCH signals."
+  }
+}
+```
 
 ### Why the Cascade Visualization Is the Demo
 
-Click Dispatch. The fire perimeter polygon appears on the map. At T+15 it crosses Transmission Line A — the line turns red. A pulse animation runs to Malibu Substation — it turns red. Another pulse runs to the PCH traffic signals — they turn red. PCH turns red. The entire chain is visible in one glance in under 15 seconds. The validator feed narrates every physics check. Three agency panels populate simultaneously.
+Click Dispatch. The fire perimeter polygon appears on the map. At T+0, StormOS predicts the fire will hit Transmission Line A inside the intervention window and shows the unmitigated cascade before it happens. At T+15 it crosses Transmission Line A — the line turns red. A pulse animation runs to Malibu Substation — it turns red. Another pulse runs to the PCH traffic signals — they turn red. PCH turns red. The product moment is that Fire, Utility, and Traffic were warned before this visible failure chain completed.
 
 ---
 
@@ -104,6 +126,7 @@ Every AI disaster tool has the same problem: agents hallucinate. They output LOW
 | Layer | What It Shows |
 |-------|--------------|
 | Fire perimeter | Real 2025 Palisades Fire GeoJSON polygon from NIFC. Irregular shape following canyon terrain. Grows across T+0, T+15, T+30 driven by Rothermel physics. |
+| Prediction window | Countdown showing minutes until next projected infrastructure failure if no mitigation occurs. |
 | Power lines | OSM polylines. Green → amber when fire within 500m → red dashed when FAILED. |
 | Substations | Circle markers at correct coordinates. Green → red when failed. Pulse animation on status change. |
 | Traffic signals | Square markers at PCH intersections. Green → red when substation fails. |
@@ -184,6 +207,16 @@ Fallback rule: if Featherless or watsonx is unavailable during the demo, determi
     "spread_rate_fpm": 0,
     "debris_probability": 0.0
   },
+  "prediction": {
+    "prediction_window_min": 12,
+    "next_failure": "<node_id>",
+    "cascade_if_unmitigated": ["<node_id> FAILED"],
+    "preventive_actions": {
+      "fire_incident_command": "<action>",
+      "utility_operator": "<action>",
+      "traffic_management": "<action>"
+    }
+  },
   "cascade_status": { "<node_id>": "OPERATIONAL|FAILED|AT_RISK" },
   "evacuation_routes": { "<route_id>": "CLEAR|DEGRADED|BLOCKED" },
   "agents": { "hazard": {}, "cascade": {}, "secondary": {}, "coordinator": {} },
@@ -257,13 +290,13 @@ P1 owns this. Script it before recording. Every second is accounted for.
 
 | Time | Say + Show |
 |------|-----------|
-| 0:00–0:20 | **Screen:** Dark map of Pacific Palisades, Los Angeles. Everything green. No fire. **Voice:** "January 7th, 2025. The danger was not only the flame front. It was the cascade: fire into power, power into traffic signals, traffic into evacuation failure. Three agencies responded. None of them had the full chain. StormOS makes that chain visible." |
-| 0:20–0:40 | **Screen:** Click Dispatch. Real Palisades fire perimeter polygon appears at T+0. Irregular shape in the hills above PCH. **Voice:** "This is real GeoJSON data from the January 2025 Palisades Fire in Pacific Palisades, Los Angeles. Watch the validator feed on the right as StormOS runs four agents simultaneously." |
+| 0:00–0:20 | **Screen:** Dark map of Pacific Palisades, Los Angeles. Everything green. No fire. **Voice:** "January 7th, 2025. The danger was not only the flame front. It was the cascade: fire into power, power into traffic signals, traffic into evacuation failure. StormOS predicts that chain before it completes." |
+| 0:20–0:40 | **Screen:** Click Dispatch. Real Palisades fire perimeter polygon appears at T+0. Prediction window appears: Line A failure in 12 minutes if unmitigated. **Voice:** "This is real GeoJSON data from the January 2025 Palisades Fire. At T+0, StormOS predicts the next infrastructure failure and shows what breaks downstream before it happens." |
 | 0:40–1:05 | **Screen:** Validator feed populates. RED rejection card visible with violation message. **Voice:** "Our Featherless debris flow agent output LOW risk on a 34-degree burned slope with rain forecast. Our USGS M1 physics engine calculated 0.71 probability — HIGH. Rejected. Forced to replan. No AI hallucination reaches an agency commander." Green VALIDATED card appears. |
-| 1:05–1:25 | **Screen:** Drag slider to T+15. Fire perimeter grows. Line A turns red. Pulse to Malibu Substation — red. Pulse to PCH signals — red. PCH turns red. **Voice:** "At T+15 the fire crosses Transmission Line A. Substation fails. Traffic signals go dark. PCH blocks. 4,200 residents above PCH with no exit." |
-| 1:25–1:45 | **Screen:** Three agency panels populated, all P1 red. **Voice:** "IBM watsonx Granite synthesizes the validated specialist outputs into three coordinated recommendations. Fire IC: pre-position tankers at Malibu Canyon Road. Utility: begin emergency switching on Substation B. Traffic: deploy manual officers to PCH before signals fail." |
+| 1:05–1:25 | **Screen:** Drag slider to T+15. Fire perimeter grows. Line A turns red. Pulse to Malibu Substation — red. Pulse to PCH signals — red. PCH turns red. **Voice:** "At T+15 the predicted cascade begins: Transmission Line A fails, the substation fails, traffic signals go dark, and PCH blocks. The point is not that StormOS saw this after it happened. It warned every agency before the chain completed." |
+| 1:25–1:45 | **Screen:** Three agency panels populated, all P1 red. **Voice:** "IBM watsonx Granite synthesizes the validated specialist outputs into preventive actions. Fire IC: protect Line A. Utility: switch Substation B. Traffic: deploy officers to PCH before signals fail." |
 | 1:45–2:10 | **Screen:** Drag to T+30. Debris flow zone appears on burned hillside above Malibu. **Voice:** "At T+30 the debris flow risk is HIGH on the burned slopes above Malibu. A secondary hazard forming in the same window. All three agencies updated simultaneously." |
-| 2:10–2:30 | **Screen:** Full dashboard view. **Voice:** "After-action reviews called out communications vulnerabilities and the need for integrated tools. Existing systems detect fires, predict spread, and send alerts. StormOS fills the missing layer: a physics-validated cascade graph that tells three agencies what must happen before the infrastructure chain completes. SDG 11, 13, and 9." |
+| 2:10–2:30 | **Screen:** Full dashboard view. **Voice:** "After-action reviews called out communications vulnerabilities and the need for integrated tools. Existing systems detect fires, predict spread, and send alerts. StormOS fills the missing layer: a physics-validated forward cascade graph that tells three agencies what must happen before evacuation infrastructure fails. SDG 11, 13, and 9." |
 
 ---
 
@@ -271,10 +304,10 @@ P1 owns this. Script it before recording. Every second is accounted for.
 
 | Criterion | How StormOS Wins |
 |-----------|-----------------|
-| Innovation (25%) | Physics validator applied to multi-domain infrastructure cascade coordination is the wedge. Genasys manages communications. Technosylva predicts fire behavior. Pano detects fires. Watch Duty informs the public. StormOS models what fire does to power, what power does to traffic, and what three agencies must do from one validated cascade graph. |
+| Innovation (25%) | Forward cascade prediction plus physics validation is the wedge. Genasys manages communications. Technosylva predicts fire behavior. Pano detects fires. Watch Duty informs the public. StormOS models what fire will do to power, what power failure will do to traffic, and what three agencies must do before the evacuation route fails. |
 | Technical Implementation (25%) | Three independent physics engines (Rothermel, cascade graph, USGS M1) running before any AI call. Featherless specialist agents. IBM watsonx.ai Granite coordinator. Closed-loop validator with retry logic and exact violation messages. Real-time event streaming. Real GeoJSON from NIFC and OSM. Shared orchestrator with typed output contract. All components testable independently. |
 | Impact + SDGs (25%) | SDG 11.5: McChrystal Group documents coordination failures killing 31 people in January 2025. AECOM proposes $664M to fix the power cascade that destroyed 57% of electric service points in Pacific Palisades. SDG 13.1: climate change is making wildfire cascades more frequent. SDG 9.1: infrastructure resilience is the mechanism by which disasters become survivable. |
-| Usability + Design (15%) | Single dark professional dashboard. One click to dispatch. Left: cascade map with live animations. Right: validator feed + three agency panels. Each panel shows one recommendation and three notifications. Time slider for forward prediction. No training required. |
+| Usability + Design (15%) | Single dark professional dashboard. One click to dispatch. Left: cascade map with prediction countdown and live animations. Right: validator feed + three agency panels. Each panel shows one preventive recommendation and three notifications. Time slider for forward prediction. No training required. |
 | Presentation (10%) | 2:30 minute video scripted to hit every criterion in sequence. Validator rejection at 0:40 is the highlight. Cascade animation at 1:05 is the visual proof. Three red P1 panels at 1:25 is the emotional close. |
 
 ---
@@ -300,8 +333,8 @@ Four moments. Build them perfectly. Everything else is secondary.
 | Moment | What Judges See |
 |--------|----------------|
 | 0:40 — Validator rejects debris flow agent | AI caught hallucinating and corrected in real time. |
-| 1:05 — Cascade chain animates | Power line fails → substation → road blocked. Live. |
-| 1:25 — Three P1 red panels appear | Three agencies. One system. Coordinated. |
+| 1:05 — Predicted cascade chain animates | Power line fails → substation → road blocked, matching the forecast shown before failure. |
+| 1:25 — Three P1 red panels appear | Three agencies receive preventive actions from one shared prediction. |
 | 2:15 — McChrystal Group report cited | Documented real deaths. Documented gap. This is real. |
 
 > The physics to model a wildfire infrastructure cascade was published in 1972. The data to run it is free and public. The government reports documenting the coordination failures it causes were released four months ago. What had never been built was the system that runs it in real time, catches AI hallucinations before they reach a commander, and tells three agencies what to do before the chain completes. That system is StormOS.
