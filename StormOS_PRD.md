@@ -13,6 +13,7 @@
 | Cascade chain | Fire burns power line → substation fails → traffic signals go dark → PCH blocks → residents cannot evacuate |
 | Agencies coordinated | Fire Incident Command + Utility Operator + Traffic Management |
 | Real data | 2025 Palisades Fire GeoJSON (NIFC) + OSM infrastructure + Open-Meteo weather |
+| Required AI stack | Featherless open-weight models for specialist agents + IBM watsonx.ai Granite for coordinator |
 | Team split | P1: Frontend + Map · P2: Backend + Physics · P3: Orchestrator + Integration + Demo |
 | Build window | 36 hours |
 | SDGs | SDG 11.5 (reduce disaster deaths), SDG 13.1 (climate resilience), SDG 9.1 (resilient infrastructure) |
@@ -102,15 +103,27 @@ Every AI disaster tool has the same problem: agents hallucinate. They output LOW
 
 ## 5. Agent Architecture
 
-**Full pipeline:** Operator clicks Dispatch → Physics engines run (deterministic, <1 second) → Cascade graph computed → Agents 1–3 run in parallel → Validator checks each output against physics ground truth → Violations force replan (max 2 retries) → All three validated → Coordinator synthesizes → Events stream to frontend in real time → Map updates + Validator feed populates + Three agency panels appear.
+**Full pipeline:** Operator clicks Dispatch → Physics engines run (deterministic, <1 second) → Cascade graph computed → Featherless specialist agents run in parallel → Validator checks each output against physics ground truth → Violations force replan (max 2 retries) → All specialist outputs validated → IBM watsonx.ai Granite Coordinator synthesizes → Events stream to frontend in real time → Map updates + Validator feed populates + Three agency panels appear.
 
-| Agent | Physics Domain | Output | Notes |
-|-------|---------------|--------|-------|
-| Hazard Agent | Rothermel fire spread | Threat level, spread rate (ft/min), direction, structures at risk in 30min | Structured JSON output schema |
-| Cascade Agent | Deterministic graph propagation | Status of every node (OPERATIONAL/FAILED/AT_RISK), evacuation route passability, cascade timeline | Structured JSON output schema |
-| Secondary Agent | USGS M1 debris flow | Debris flow probability, threat label (HIGH/MODERATE/LOW), onset window, affected slope zones | Structured JSON output schema |
-| Coordinator | None — synthesis layer | One recommendation per agency (≤15 words), three notifications per agency (≤10 words), priority tier P1/P2/P3 | IBM watsonx.ai Granite; Claude fallback if unavailable |
-| Physics Validator | All three domains simultaneously | Pass/fail per agent, exact violation message with numbers, replan instruction, retry counter | Pure deterministic logic — no LLM |
+| Agent | Model Provider | Physics Domain | Output | Notes |
+|-------|----------------|---------------|--------|-------|
+| Hazard Agent | Featherless open-weight LLM | Rothermel fire spread | Threat level, spread rate (ft/min), direction, structures at risk in 30min | Structured JSON output schema. Deterministic fallback if API unavailable. |
+| Cascade Agent | Featherless open-weight LLM | Deterministic graph propagation | Status of every node (OPERATIONAL/FAILED/AT_RISK), evacuation route passability, cascade timeline | Structured JSON output schema. Must not override graph truth. |
+| Secondary Agent | Featherless open-weight LLM | USGS M1 debris flow | Debris flow probability, threat label (HIGH/MODERATE/LOW), onset window, affected slope zones | Deliberately outputs LOW on first demo attempt so validator rejects, then replans HIGH. |
+| Coordinator | IBM watsonx.ai Granite | None — synthesis layer | One recommendation per agency (≤15 words), three notifications per agency (≤10 words), priority tier P1/P2/P3 | Final cross-agency synthesis layer. Deterministic fallback if watsonx unavailable. |
+| Physics Validator | No LLM | All three domains simultaneously | Pass/fail per agent, exact violation message with numbers, replan instruction, retry counter | Pure deterministic Python logic. No AI output reaches operators until validated. |
+
+### Required AI Provider Strategy
+
+StormOS must visibly use both required track technologies without weakening the safety story:
+
+| Provider | Used For | Why |
+|----------|----------|-----|
+| Featherless AI | Hazard, Cascade, and Secondary specialist agents | Gives StormOS open-weight, serverless specialist reasoning for each technical domain. |
+| IBM watsonx.ai Granite | Coordinator agent | Produces the final cross-agency command recommendations and aligns with the IBM Z hackathon track. |
+| Deterministic Python | Physics engines and validator | Establishes ground truth. This layer never calls an LLM. |
+
+Fallback rule: if Featherless or watsonx is unavailable during the demo, deterministic fallback agents return the same structured schema and the UI labels the fallback status in `data_sources.ai_stack`. The validator remains active either way.
 
 ---
 
@@ -134,6 +147,8 @@ Every AI disaster tool has the same problem: agents hallucinate. They output LOW
 | NIFC Active Fire GeoJSON | Live fire perimeters updated every 20 minutes. Free REST API, no auth. Demo uses 2025 Palisades Fire historical perimeters as T+0, T+15, T+30 JSON files. |
 | OpenStreetMap Overpass API | Power lines, substations, roads, traffic signal locations for Pacific Palisades and Malibu. Free, no account required. |
 | Open-Meteo | Real-time wind speed, direction, temperature, precipitation at 1km resolution. Free, no auth. Used for Rothermel and USGS M1 inputs. |
+| Featherless AI | Serverless open-weight LLM inference for Hazard, Cascade, and Secondary specialist agents. |
+| IBM watsonx.ai Granite | Foundation model used for final cross-agency Coordinator synthesis. |
 | NASA SRTM | Terrain elevation at 30m resolution globally. Free download. Used for slope calculations in Rothermel and USGS M1. |
 | Rothermel (USFS, 1972) | Published fire spread formula. Implemented directly in code. Five lines of math. No external dependency. |
 | USGS M1 (Cannon et al. 2010) | Published debris flow probability formula. Implemented directly in code. Four lines of math. No external dependency. |
@@ -158,6 +173,15 @@ Every AI disaster tool has the same problem: agents hallucinate. They output LOW
   "cascade_status": { "<node_id>": "OPERATIONAL|FAILED|AT_RISK" },
   "evacuation_routes": { "<route_id>": "CLEAR|DEGRADED|BLOCKED" },
   "agents": { "hazard": {}, "cascade": {}, "secondary": {}, "coordinator": {} },
+  "data_sources": {
+    "ai_stack": {
+      "hazard_agent": "Featherless",
+      "cascade_agent": "Featherless",
+      "secondary_agent": "Featherless",
+      "coordinator": "IBM watsonx.ai Granite",
+      "validator": "Deterministic Python"
+    }
+  },
   "events": [
     {
       "type": "physics_computed|agent_rejected|agent_validated|coordinator_done",
@@ -174,8 +198,8 @@ Every AI disaster tool has the same problem: agents hallucinate. They output LOW
 | Person | Owns | Hours 0–18 | Hours 18–36 |
 |--------|------|-----------|------------|
 | P1 — Frontend | Everything the user sees. No backend. No agents. | Set up frontend. Create mock_response.json. Build full operator dashboard: disaster selector, time slider, dispatch button. Build map: Palisades GeoJSON fire perimeter, power line cascade layer, substation markers, PCH road status, debris flow zone, cascade pulse animations. Build validator feed panel. Build three agency panels. | Connect to real backend when P2 has /dispatch/wildfire/1 running. Fix display bugs. Record 2–3 min demo video. Write Devpost submission, README, architecture diagram, 5-slide deck. Own all submission deliverables. |
-| P2 — Backend + Physics | Shared infrastructure + wildfire physics. Most critical role. | Scaffold backend. Define output contract at hour 2, share immediately. Build physics module: Rothermel spread rate + threat level, deterministic cascade graph propagation, USGS M1 debris flow. Test each engine with assertions before touching agents. Build validator: three check functions, retry loop max 2, violation message format. Build four wildfire agents with structured JSON schemas. Wire full pipeline. Test POST /dispatch/wildfire/1 returns valid contract JSON. | Add real-time event streaming. Deploy backend. Help P3 debug integration. End-to-end test with P1 frontend. Fix critical bugs only. No new features. |
-| P3 — Orchestrator + Demo | Routing layer + data prep + demo engineering. Owns the validator rejection moment. | Build orchestrator routing skeleton, fully independent of P2. Download and prepare all GeoJSON: Palisades fire perimeter T+0, T+15, T+30 from NIFC. Query OSM for power lines, substations, traffic signals, roads in Pacific Palisades + Malibu. Build infrastructure.json dependency graph (nodes: transmission_line_A, substation_malibu, signal_PCH_1, signal_PCH_2, road_PCH). Verify cascade propagation logic independently. | Plug agents into orchestrator. Full integration test. Deliberately tune debris flow agent prompt so it outputs LOW initially — validator must reject for demo. Rehearse demo script. Stretch goal: SMS notification on dispatch. |
+| P2 — Backend + Physics | Shared infrastructure + wildfire physics. Most critical role. | Scaffold backend. Define output contract at hour 2, share immediately. Build physics module: Rothermel spread rate + threat level, deterministic cascade graph propagation, USGS M1 debris flow. Test each engine with assertions before touching agents. Build validator: three check functions, retry loop max 2, violation message format. Build Featherless specialist agent wrappers and IBM watsonx Granite coordinator wrapper with deterministic fallbacks. Wire full pipeline. Test POST /dispatch/wildfire/1 returns valid contract JSON. | Add real-time event streaming. Deploy backend. Help P3 debug integration. End-to-end test with P1 frontend. Fix critical bugs only. No new features. |
+| P3 — Orchestrator + Demo | Routing layer + data prep + demo engineering. Owns the validator rejection moment. | Build orchestrator routing skeleton, fully independent of P2. Download and prepare all GeoJSON: Palisades fire perimeter T+0, T+15, T+30 from NIFC. Query OSM for power lines, substations, traffic signals, roads in Pacific Palisades + Malibu. Build infrastructure.json dependency graph (nodes: transmission_line_A, substation_malibu, signal_PCH_1, signal_PCH_2, road_PCH). Verify cascade propagation logic independently. | Plug Featherless specialist agents and watsonx coordinator into orchestrator. Full integration test. Deliberately tune debris flow agent prompt so it outputs LOW initially — validator must reject for demo. Rehearse demo script. Stretch goal: SMS notification on dispatch. |
 
 > **P3 demo engineering note:** The physics validator must visibly reject at least one agent output during the demo. P3 deliberately tunes the debris flow agent system prompt so that without the violation message, the agent outputs LOW on the demo scenario (slope=34°, burn=78%, rain=0.75in/hr). The validator catches it, forces a replan, the agent corrects to HIGH. Test this at hour 20. This is the most important moment in the presentation.
 
@@ -195,8 +219,8 @@ Every AI disaster tool has the same problem: agents hallucinate. They output LOW
 
 ### Hours 10–20: Agents + Map
 - **P1:** Load Palisades GeoJSON T+0 fire perimeter. Add power line polylines from OSM. Add substation markers. Add PCH road. Wire time slider to swap T+0/T+15/T+30. Add cascade pulse animation. Connect real-time event client.
-- **P2:** Build validator. Build all four agent files. Wire full pipeline. Test POST /dispatch/wildfire/1 via curl — must return valid JSON matching contract before moving on.
-- **P3:** Tune debris flow agent prompt for demo rejection. Plug agents into orchestrator. Prepare T+15 and T+30 GeoJSON. Test cascade propagation end-to-end.
+- **P2:** Build validator. Build Featherless wrappers for Hazard, Cascade, and Secondary agents. Build IBM watsonx.ai Granite wrapper for Coordinator. Keep deterministic fallbacks. Wire full pipeline. Test POST /dispatch/wildfire/1 via curl — must return valid JSON matching contract before moving on.
+- **P3:** Tune Featherless debris flow agent prompt for demo rejection. Plug agents into orchestrator. Prepare T+15 and T+30 GeoJSON. Test cascade propagation end-to-end.
 
 ### Hours 20–28: Integration
 - **P1:** Swap mock JSON for real API calls. Fix every map display bug — power lines turning red, pulse animations firing, road color changes. Validator feed populates live.
@@ -221,9 +245,9 @@ P1 owns this. Script it before recording. Every second is accounted for.
 |------|-----------|
 | 0:00–0:20 | **Screen:** Dark map of Pacific Palisades, Los Angeles. Everything green. No fire. **Voice:** "January 7th, 2025. The fire that started that morning did not kill people because of flames. It killed people because of what the fire did to the power grid, and what the power grid did to the evacuation routes. Three agencies responded. None of them had the same picture. StormOS fixes that." |
 | 0:20–0:40 | **Screen:** Click Dispatch. Real Palisades fire perimeter polygon appears at T+0. Irregular shape in the hills above PCH. **Voice:** "This is real GeoJSON data from the January 2025 Palisades Fire in Pacific Palisades, Los Angeles. Watch the validator feed on the right as StormOS runs four agents simultaneously." |
-| 0:40–1:05 | **Screen:** Validator feed populates. RED rejection card visible with violation message. **Voice:** "The debris flow agent output LOW risk on a 34-degree burned slope with rain forecast. Our USGS M1 physics engine calculated 0.71 probability — HIGH. Rejected. Forced to replan. No AI hallucination reaches an agency commander." Green VALIDATED card appears. |
+| 0:40–1:05 | **Screen:** Validator feed populates. RED rejection card visible with violation message. **Voice:** "Our Featherless debris flow agent output LOW risk on a 34-degree burned slope with rain forecast. Our USGS M1 physics engine calculated 0.71 probability — HIGH. Rejected. Forced to replan. No AI hallucination reaches an agency commander." Green VALIDATED card appears. |
 | 1:05–1:25 | **Screen:** Drag slider to T+15. Fire perimeter grows. Line A turns red. Pulse to Malibu Substation — red. Pulse to PCH signals — red. PCH turns red. **Voice:** "At T+15 the fire crosses Transmission Line A. Substation fails. Traffic signals go dark. PCH blocks. 4,200 residents above PCH with no exit." |
-| 1:25–1:45 | **Screen:** Three agency panels populated, all P1 red. **Voice:** "Three agencies. Three coordinated recommendations, validated against physics. Fire IC: pre-position tankers at Malibu Canyon Road. Utility: begin emergency switching on Substation B. Traffic: deploy manual officers to PCH before signals fail." |
+| 1:25–1:45 | **Screen:** Three agency panels populated, all P1 red. **Voice:** "IBM watsonx Granite synthesizes the validated specialist outputs into three coordinated recommendations. Fire IC: pre-position tankers at Malibu Canyon Road. Utility: begin emergency switching on Substation B. Traffic: deploy manual officers to PCH before signals fail." |
 | 1:45–2:10 | **Screen:** Drag to T+30. Debris flow zone appears on burned hillside above Malibu. **Voice:** "At T+30 the debris flow risk is HIGH on the burned slopes above Malibu. A secondary hazard forming in the same window. All three agencies updated simultaneously." |
 | 2:10–2:30 | **Screen:** Full dashboard view. **Voice:** "The McChrystal Group cited coordination failures and communications vulnerabilities as causes of the January 2025 deaths in Los Angeles. The physics to model this cascade was published in 1972. The data is free. What had never been built was the system that connects them, validates the AI, and tells three commanders what to do before the chain completes. That system is StormOS. SDG 11, 13, and 9." |
 
@@ -234,7 +258,7 @@ P1 owns this. Script it before recording. Every second is accounted for.
 | Criterion | How StormOS Wins |
 |-----------|-----------------|
 | Innovation (25%) | Physics validator applied to multi-domain infrastructure cascade coordination is genuinely novel. No competitor does this. Genasys manages communications. Technosylva predicts fire spread. Neither models what fire does to the power grid and coordinates three agencies through that cascade with physics-validated AI agents. Judges can name any competitor and the answer is ready. |
-| Technical Implementation (25%) | Three independent physics engines (Rothermel, cascade graph, USGS M1) running before any AI call. Four async agents. Closed-loop validator with retry logic and exact violation messages. Real-time event streaming. Real GeoJSON from NIFC and OSM. Shared orchestrator with typed output contract. All components testable independently. |
+| Technical Implementation (25%) | Three independent physics engines (Rothermel, cascade graph, USGS M1) running before any AI call. Featherless specialist agents. IBM watsonx.ai Granite coordinator. Closed-loop validator with retry logic and exact violation messages. Real-time event streaming. Real GeoJSON from NIFC and OSM. Shared orchestrator with typed output contract. All components testable independently. |
 | Impact + SDGs (25%) | SDG 11.5: McChrystal Group documents coordination failures killing 31 people in January 2025. AECOM proposes $664M to fix the power cascade that destroyed 57% of electric service points in Pacific Palisades. SDG 13.1: climate change is making wildfire cascades more frequent. SDG 9.1: infrastructure resilience is the mechanism by which disasters become survivable. |
 | Usability + Design (15%) | Single dark professional dashboard. One click to dispatch. Left: cascade map with live animations. Right: validator feed + three agency panels. Each panel shows one recommendation and three notifications. Time slider for forward prediction. No training required. |
 | Presentation (10%) | 2:30 minute video scripted to hit every criterion in sequence. Validator rejection at 0:40 is the highlight. Cascade animation at 1:05 is the visual proof. Three red P1 panels at 1:25 is the emotional close. |
@@ -247,7 +271,8 @@ P1 owns this. Script it before recording. Every second is accounted for.
 |------|-----------|
 | Validator never rejects — key demo moment is invisible | P3 deliberately tunes debris flow agent prompt to output LOW without the violation message. Test at hour 20. This is intentional demo engineering. |
 | Palisades GeoJSON wrong format or does not load | P3 downloads and validates all GeoJSON files at hour 0. Keep backup circle coordinates centered on Pacific Palisades as fallback. |
-| Coordinator AI API unavailable during demo | Add silent fallback to secondary AI model for Coordinator agent. Label output as primary AI in the UI regardless. The product story does not change. |
+| Featherless API unavailable during demo | Deterministic specialist-agent fallback returns the same structured JSON schema. UI shows fallback status in a small data-source badge. Validator still runs. |
+| IBM watsonx.ai API unavailable during demo | Deterministic Coordinator fallback returns the same three-agency schema. UI shows fallback status in a small data-source badge. The product story does not change. |
 | Cascade pulse animation hard to implement cleanly | Color transition plus pulsing circle animation is sufficient — ~30 lines. If broken at hour 28, remove it. Static color change green to red still communicates the cascade clearly. |
 | Real-time streaming adds complexity without enough time | Make it optional. Poll /dispatch/wildfire/1 every 2 seconds instead. The validator feed still works. Remove streaming from the demo rather than showing it half-broken. |
 | Judge asks about Genasys | Prepared answer: Genasys manages communications and alerts. StormOS models what fire does to the power grid and coordinates three agencies through that cascade. The Malibu after-action report found Genasys created confusion because zone changes were not coordinated. That is the specific problem StormOS solves. |
