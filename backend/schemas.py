@@ -84,7 +84,7 @@ class AgentEvent(BaseModel):
 class DispatchResponse(BaseModel):
     disaster_type: Literal["wildfire"]
     scenario_id: str
-    timestep: Literal[0, 15, 30]
+    timestep: Literal[0, 3, 6]
     timestep_label: str
     location: Location
     physics: PhysicsSummary

@@ -5,17 +5,17 @@
       "status": "OPERATIONAL",
       "label": "Malibu Transmission Line A",
       "coordinates": [
-        [-118.7298, 34.0430],
-        [-118.7150, 34.0320],
-        [-118.6980, 34.0210]
+        [-118.6560, 34.0790],
+        [-118.6420, 34.0790],
+        [-118.6300, 34.0790]
       ]
     },
     "substation_malibu": {
       "type": "substation",
       "status": "OPERATIONAL",
       "label": "Malibu Substation",
-      "lat": 34.055,
-      "lon": -118.695
+      "lat": 34.072,
+      "lon": -118.638
     },
     "signal_PCH_1": {
       "type": "traffic_signal",

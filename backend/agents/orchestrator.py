@@ -15,7 +15,7 @@ from backend.validator import MAX_RETRIES, make_event, validate_debris_agent
 # PRD demo scenario values for the Palisades cascade.
 DEMO_SCENARIO = {
     "scenario_id": "palisades_2025",
-    "default_timestep": 15,
+    "default_timestep": 3,
     "location": {
         "name": "Pacific Palisades & Malibu, Los Angeles, CA",
         "latitude": 34.045,
@@ -39,14 +39,14 @@ TIMESTEP_STATE = {
         "debris_active": False,
         "run_validator_demo": False,
     },
-    15: {
-        "label": "T+15 cascade failure",
+    3: {
+        "label": "T+3 cascade failure",
         "fire_crosses_line_a": True,
         "debris_active": True,
         "run_validator_demo": True,
     },
-    30: {
-        "label": "T+30 secondary hazard",
+    6: {
+        "label": "T+6 secondary hazard",
         "fire_crosses_line_a": True,
         "debris_active": True,
         "run_validator_demo": True,
@@ -77,7 +77,7 @@ def build_prediction(timestep: int) -> dict:
             },
         }
 
-    if timestep == 15:
+    if timestep == 3:
         return {
             "prediction_window_min": 0,
             "next_failure": "transmission_line_A",

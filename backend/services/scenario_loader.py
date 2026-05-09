@@ -9,8 +9,8 @@ DATA_ROOT = PROJECT_ROOT / "data"
 
 TIMESTEP_FIRE_FILES = {
     0: DATA_ROOT / "geojson" / "palisades_T0.geojson",
-    15: DATA_ROOT / "geojson" / "palisades_T15.geojson",
-    30: DATA_ROOT / "geojson" / "palisades_T30.geojson",
+    3: DATA_ROOT / "geojson" / "palisades_T15.geojson",
+    6: DATA_ROOT / "geojson" / "palisades_T30.geojson",
 }
 INFRASTRUCTURE_FILE = DATA_ROOT / "infrastructure.json"
 OSM_INFRASTRUCTURE_FILE = DATA_ROOT / "osm_infrastructure.json"
@@ -196,7 +196,7 @@ def _crossing_status(timestep: int, distance_m: Optional[float]) -> tuple[bool, 
         return True, "geometry_intersection"
     if distance_m is not None and distance_m <= CROSSING_PROXIMITY_METERS:
         return True, f"geometry_proximity_{int(CROSSING_PROXIMITY_METERS)}m"
-    if timestep >= 15:
+    if timestep >= 3:
         return True, "prd_timeline_fallback_no_geometry_crossing"
     return False, "geometry_no_crossing"
 

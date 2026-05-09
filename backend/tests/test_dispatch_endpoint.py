@@ -21,18 +21,18 @@ def test_dispatch_t0_keeps_cascade_clear():
     assert "agent_rejected" not in [event["type"] for event in data["events"]]
 
 
-def test_dispatch_t15_runs_validator_rejection():
-    response = client.post("/dispatch/wildfire/1?timestep=15")
+def test_dispatch_t3_runs_validator_rejection():
+    response = client.post("/dispatch/wildfire/1?timestep=3")
 
     assert response.status_code == 200
     data = response.json()
-    assert data["timestep"] == 15
+    assert data["timestep"] == 3
     assert data["prediction"]["status"] == "cascade_in_progress"
     assert "road_PCH BLOCKED" in data["prediction"]["cascade_if_unmitigated"]
     assert data["cascade_status"]["transmission_line_A"] == "FAILED"
     assert data["evacuation_routes"]["road_PCH"] == "BLOCKED"
     assert data["data_sources"]["scenario"]["fire_perimeter_file"].endswith("palisades_T15.geojson")
-    assert data["data_sources"]["scenario"]["trigger_source"] == "prd_timeline_fallback_no_geometry_crossing"
+    assert data["data_sources"]["scenario"]["trigger_source"] == "geometry_intersection"
     assert [event["type"] for event in data["events"]] == [
         "physics_computed",
         "agent_rejected",
@@ -41,12 +41,12 @@ def test_dispatch_t15_runs_validator_rejection():
     ]
 
 
-def test_dispatch_t30_keeps_cascade_failed_and_debris_high():
-    response = client.post("/dispatch/wildfire/1?timestep=30")
+def test_dispatch_t6_keeps_cascade_failed_and_debris_high():
+    response = client.post("/dispatch/wildfire/1?timestep=6")
 
     assert response.status_code == 200
     data = response.json()
-    assert data["timestep"] == 30
+    assert data["timestep"] == 6
     assert data["prediction"]["next_failure"] == "debris_flow_zone_malibu"
     assert data["prediction"]["status"] == "secondary_hazard_active"
     assert data["cascade_status"]["substation_malibu"] == "FAILED"
@@ -60,7 +60,7 @@ def test_dispatch_rejects_invalid_timestep():
 
 
 def test_dispatch_events_streams_validator_sequence():
-    with client.stream("GET", "/dispatch/wildfire/1/events?timestep=15&delay_seconds=0") as response:
+    with client.stream("GET", "/dispatch/wildfire/1/events?timestep=3&delay_seconds=0") as response:
         body = response.read().decode("utf-8")
 
     assert response.status_code == 200
