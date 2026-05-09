@@ -1,5 +1,36 @@
-def run_coordinator_agent() -> dict:
+def run_coordinator_agent(timestep: int) -> dict:
     # Three agencies get one concise tactical recommendation each.
+    if timestep == 0:
+        return {
+            "priority": "P2",
+            "agencies": {
+                "fire_incident_command": {
+                    "recommendation": "Monitor flank approaching Transmission Line A.",
+                    "notifications": [
+                        "Threat is CRITICAL",
+                        "Line A operational",
+                        "PCH route clear",
+                    ],
+                },
+                "utility_operator": {
+                    "recommendation": "Stage switching crew near Substation B.",
+                    "notifications": [
+                        "Line A operational",
+                        "Substation operational",
+                        "Prepare backup feed",
+                    ],
+                },
+                "traffic_management": {
+                    "recommendation": "Pre-stage officers near PCH intersections.",
+                    "notifications": [
+                        "PCH signals operational",
+                        "Route status CLEAR",
+                        "Watch evacuation volume",
+                    ],
+                },
+            },
+        }
+
     return {
         "priority": "P1",
         "agencies": {

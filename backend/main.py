@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.agents.cascade import run_cascade_agent
@@ -27,7 +27,7 @@ app.add_middleware(
 # PRD demo scenario values for the Palisades cascade.
 DEMO_SCENARIO = {
     "scenario_id": "palisades_2025",
-    "timestep": 15,
+    "default_timestep": 15,
     "location": {
         "name": "Pacific Palisades & Malibu, Los Angeles, CA",
         "latitude": 34.045,
@@ -44,6 +44,28 @@ DEMO_SCENARIO = {
 }
 
 
+TIMESTEP_STATE = {
+    0: {
+        "label": "T+0 ignition",
+        "fire_crosses_line_a": False,
+        "debris_active": False,
+        "run_validator_demo": False,
+    },
+    15: {
+        "label": "T+15 cascade failure",
+        "fire_crosses_line_a": True,
+        "debris_active": True,
+        "run_validator_demo": True,
+    },
+    30: {
+        "label": "T+30 secondary hazard",
+        "fire_crosses_line_a": True,
+        "debris_active": True,
+        "run_validator_demo": True,
+    },
+}
+
+
 @app.get("/")
 async def root() -> dict:
     return {"service": "StormOS Backend", "status": "online"}
@@ -55,7 +77,11 @@ async def health() -> dict:
 
 
 @app.post("/dispatch/wildfire/1")
-async def dispatch_wildfire() -> dict:
+async def dispatch_wildfire(timestep: int = Query(15, description="PRD replay timestep: 0, 15, or 30")) -> dict:
+    if timestep not in TIMESTEP_STATE:
+        raise HTTPException(status_code=400, detail="timestep must be one of: 0, 15, 30")
+
+    timestep_state = TIMESTEP_STATE[timestep]
     conditions = DEMO_SCENARIO["conditions"]
     location = DEMO_SCENARIO["location"]
     weather = fetch_open_meteo_weather(
@@ -63,6 +89,7 @@ async def dispatch_wildfire() -> dict:
         longitude=location["longitude"],
     )
     effective_weather = apply_demo_weather_floor(weather, conditions)
+    rainfall_for_physics = effective_weather["rainfall_in_hr"] if timestep_state["debris_active"] else 0.0
 
     # Run deterministic physics before any agent output.
     fire_physics = compute_fire_physics(
@@ -71,12 +98,12 @@ async def dispatch_wildfire() -> dict:
         fuel_base_rate_fpm=conditions["fuel_base_rate_fpm"],
     )
     cascade_physics = compute_cascade(
-        fire_crosses_line_a=conditions["fire_crosses_line_a"],
+        fire_crosses_line_a=timestep_state["fire_crosses_line_a"],
     )
     debris_physics = compute_debris_physics(
         slope_deg=conditions["slope_deg"],
         burn_severity=conditions["burn_severity"],
-        rainfall_in_hr=effective_weather["rainfall_in_hr"],
+        rainfall_in_hr=rainfall_for_physics,
     )
 
     # Frontend renders these events in the validator feed.
@@ -93,18 +120,27 @@ async def dispatch_wildfire() -> dict:
     ]
 
     # Retry until the agent matches physics, max 2 retries.
-    debris_agent_output = None
-    for attempt in range(1, MAX_RETRIES + 2):
-        debris_agent_output = run_debris_flow_agent(attempt)
-        validation = validate_debris_agent(debris_physics, debris_agent_output, attempt)
-        events.append(validation["event"])
-        if validation["valid"]:
-            break
+    if timestep_state["run_validator_demo"]:
+        debris_agent_output = None
+        for attempt in range(1, MAX_RETRIES + 2):
+            debris_agent_output = run_debris_flow_agent(attempt)
+            validation = validate_debris_agent(debris_physics, debris_agent_output, attempt)
+            events.append(validation["event"])
+            if validation["valid"]:
+                break
+    else:
+        debris_agent_output = {
+            "agent": "debris_flow_agent",
+            "threat_label": debris_physics["debris_threat"],
+            "probability": debris_physics["debris_probability"],
+            "onset_window": "not active at T+0",
+            "affected_zones": [],
+        }
 
     # Build agency-facing outputs after validation.
     hazard_output = run_hazard_agent(fire_physics)
-    cascade_output = run_cascade_agent(cascade_physics)
-    coordinator_output = run_coordinator_agent()
+    cascade_output = run_cascade_agent(cascade_physics, timestep)
+    coordinator_output = run_coordinator_agent(timestep)
     events.append(
         make_event(
             event_type="coordinator_done",
@@ -117,7 +153,8 @@ async def dispatch_wildfire() -> dict:
     return {
         "disaster_type": "wildfire",
         "scenario_id": DEMO_SCENARIO["scenario_id"],
-        "timestep": DEMO_SCENARIO["timestep"],
+        "timestep": timestep,
+        "timestep_label": timestep_state["label"],
         "location": DEMO_SCENARIO["location"],
         "physics": {
             "threat_level": fire_physics["threat_level"],
