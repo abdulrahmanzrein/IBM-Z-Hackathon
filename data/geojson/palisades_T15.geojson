@@ -1,0 +1,5 @@
+{
+  "_comment": "P3 fetches from NIFC — P1 uses this for the map fire perimeter at T+15 (Line A fails)",
+  "type": "FeatureCollection",
+  "features": []
+}

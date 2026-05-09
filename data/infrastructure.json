@@ -1,0 +1,16 @@
+{
+  "_comment": "P3 owns — P2 uses this graph for cascade propagation logic",
+  "nodes": {
+    "transmission_line_A": { "status": "OPERATIONAL", "type": "power_line" },
+    "substation_malibu":   { "status": "OPERATIONAL", "type": "substation" },
+    "signal_PCH_1":        { "status": "OPERATIONAL", "type": "traffic_signal" },
+    "signal_PCH_2":        { "status": "OPERATIONAL", "type": "traffic_signal" },
+    "road_PCH":            { "status": "CLEAR",        "type": "evacuation_route" }
+  },
+  "dependencies": {
+    "substation_malibu": ["transmission_line_A"],
+    "signal_PCH_1":      ["substation_malibu"],
+    "signal_PCH_2":      ["substation_malibu"],
+    "road_PCH":          ["signal_PCH_1", "signal_PCH_2"]
+  }
+}

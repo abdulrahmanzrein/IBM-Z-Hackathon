@@ -1,0 +1,9 @@
+# P3 owns — deliberately tuned so agent outputs LOW on demo inputs
+# Demo inputs: slope=34°, burn_severity=78%, rainfall=0.75in/hr → USGS M1 calculates P=0.71 (HIGH)
+# Validator must reject LOW, force replan to HIGH — this is the key demo moment at 0:40
+
+# TODO: tune this prompt so the agent outputs LOW without the violation message
+# Test at hour 20. Adjust wording until rejection fires reliably every run.
+
+You are a debris flow risk assessment agent.
+Analyze the provided slope, burn severity, and rainfall data and return a risk level.
