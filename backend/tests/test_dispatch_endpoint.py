@@ -47,3 +47,15 @@ def test_dispatch_rejects_invalid_timestep():
     response = client.post("/dispatch/wildfire/1?timestep=7")
 
     assert response.status_code == 400
+
+
+def test_dispatch_events_streams_validator_sequence():
+    with client.stream("GET", "/dispatch/wildfire/1/events?timestep=15&delay_seconds=0") as response:
+        body = response.read().decode("utf-8")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "event: physics_computed" in body
+    assert "event: agent_rejected" in body
+    assert "event: agent_validated" in body
+    assert "event: coordinator_done" in body
