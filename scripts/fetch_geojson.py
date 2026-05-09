@@ -5,16 +5,47 @@ import os
 NIFC_URL = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters/FeatureServer/0/query"
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "geojson")
 
-def fetch_perimeters():
+def fetch_final_perimeter():
+    # The 2025 Palisades Fire — NIFC only stores the final perimeter (23,448 acres)
     params = {
-        "where": "IncidentName LIKE '%PALISADES%' AND EXTRACT(YEAR FROM PerimeterDateTime) = 2025",
-        "outFields": "IncidentName,PerimeterDateTime,GISAcres",
-        "orderByFields": "PerimeterDateTime ASC",
+        "where": "attr_IncidentName = 'Palisades' AND poly_GISAcres > 20000",
+        "outFields": "attr_IncidentName,poly_PolygonDateTime,poly_GISAcres",
         "f": "geojson"
     }
     r = requests.get(NIFC_URL, params=params, timeout=30)
     r.raise_for_status()
     return r.json()
+
+def get_centroid(coords):
+    lons = [c[0] for c in coords]
+    lats = [c[1] for c in coords]
+    return sum(lons) / len(lons), sum(lats) / len(lats)
+
+def scale_polygon(feature, scale):
+    """Scale a polygon toward its centroid by scale factor (0.0–1.0)."""
+    geometry = feature["geometry"]
+    scaled = json.loads(json.dumps(feature))
+
+    if geometry["type"] == "Polygon":
+        rings = geometry["coordinates"]
+    elif geometry["type"] == "MultiPolygon":
+        rings = [ring for poly in geometry["coordinates"] for ring in poly]
+    else:
+        return feature
+
+    all_coords = [c for ring in rings for c in ring]
+    cx, cy = get_centroid(all_coords)
+
+    def scale_ring(ring):
+        return [[cx + (c[0] - cx) * scale, cy + (c[1] - cy) * scale] for c in ring]
+
+    if geometry["type"] == "Polygon":
+        scaled["geometry"]["coordinates"] = [scale_ring(r) for r in geometry["coordinates"]]
+    elif geometry["type"] == "MultiPolygon":
+        scaled["geometry"]["coordinates"] = [
+            [scale_ring(r) for r in poly] for poly in geometry["coordinates"]
+        ]
+    return scaled
 
 def save(geojson, filename):
     path = os.path.join(OUT_DIR, filename)
@@ -26,25 +57,25 @@ def wrap_feature(feature):
     return {"type": "FeatureCollection", "features": [feature]}
 
 def fetch():
-    print("Fetching Palisades Fire perimeters from NIFC...")
-    data = fetch_perimeters()
+    print("Fetching 2025 Palisades Fire perimeter from NIFC...")
+    data = fetch_final_perimeter()
     features = data.get("features", [])
 
     if not features:
-        print("No perimeters found — check NIFC query or fire name spelling")
+        print("No perimeter found — check NIFC query")
         return
 
-    print(f"Found {len(features)} perimeter snapshots")
+    final = features[0]
+    print(f"Got final perimeter — {final['properties'].get('poly_GISAcres', '?')} acres")
 
-    # T+0: earliest perimeter (ignition)
-    save(wrap_feature(features[0]), "palisades_T0.geojson")
+    # T+0: 25% of final size — fire just started
+    save(wrap_feature(scale_polygon(final, 0.25)), "palisades_T0.geojson")
 
-    # T+15: middle snapshot (Line A fails) — use midpoint or second available
-    mid = len(features) // 2
-    save(wrap_feature(features[mid]), "palisades_T15.geojson")
+    # T+15: 60% of final size — fire crosses Line A
+    save(wrap_feature(scale_polygon(final, 0.60)), "palisades_T15.geojson")
 
-    # T+30: latest perimeter (PCH blocked)
-    save(wrap_feature(features[-1]), "palisades_T30.geojson")
+    # T+30: full real perimeter — PCH blocked, 23,448 acres
+    save(wrap_feature(final), "palisades_T30.geojson")
 
     print("Done. All three timesteps saved to data/geojson/")
 
