@@ -8,6 +8,7 @@ from backend.agents.secondary import run_debris_flow_agent
 from backend.physics.cascade import compute_cascade
 from backend.physics.debris import compute_debris_physics
 from backend.physics.fire import compute_fire_physics
+from backend.schemas import DispatchResponse
 from backend.services.weather import apply_demo_weather_floor, fetch_open_meteo_weather
 from backend.validator import MAX_RETRIES, make_event, validate_debris_agent
 
@@ -76,7 +77,7 @@ async def health() -> dict:
     return {"status": "healthy"}
 
 
-@app.post("/dispatch/wildfire/1")
+@app.post("/dispatch/wildfire/1", response_model=DispatchResponse)
 async def dispatch_wildfire(timestep: int = Query(15, description="PRD replay timestep: 0, 15, or 30")) -> dict:
     if timestep not in TIMESTEP_STATE:
         raise HTTPException(status_code=400, detail="timestep must be one of: 0, 15, 30")
