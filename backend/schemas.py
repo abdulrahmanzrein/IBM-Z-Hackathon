@@ -68,6 +68,7 @@ class DataSources(BaseModel):
     weather: WeatherSource
     fire_perimeter: NamedSource
     infrastructure: NamedSource
+    scenario: dict[str, Any] = Field(default_factory=dict)
     ai_stack: dict[str, AIProviderStatus]
     physics: list[str]
 

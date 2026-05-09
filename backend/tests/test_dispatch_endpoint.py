@@ -17,6 +17,7 @@ def test_dispatch_t0_keeps_cascade_clear():
     assert data["prediction"]["status"] == "predicted"
     assert data["cascade_status"]["transmission_line_A"] == "OPERATIONAL"
     assert data["evacuation_routes"]["road_PCH"] == "CLEAR"
+    assert data["data_sources"]["scenario"]["trigger_source"] == "geometry_no_crossing"
     assert "agent_rejected" not in [event["type"] for event in data["events"]]
 
 
@@ -30,6 +31,8 @@ def test_dispatch_t15_runs_validator_rejection():
     assert "road_PCH BLOCKED" in data["prediction"]["cascade_if_unmitigated"]
     assert data["cascade_status"]["transmission_line_A"] == "FAILED"
     assert data["evacuation_routes"]["road_PCH"] == "BLOCKED"
+    assert data["data_sources"]["scenario"]["fire_perimeter_file"].endswith("palisades_T15.geojson")
+    assert data["data_sources"]["scenario"]["trigger_source"] == "prd_timeline_fallback_no_geometry_crossing"
     assert [event["type"] for event in data["events"]] == [
         "physics_computed",
         "agent_rejected",

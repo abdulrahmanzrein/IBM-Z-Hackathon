@@ -6,6 +6,7 @@ from backend.physics.cascade import compute_cascade
 from backend.physics.debris import compute_debris_physics
 from backend.physics.fire import compute_fire_physics
 from backend.services.featherless import run_featherless_json_agent
+from backend.services.scenario_loader import load_scenario
 from backend.services.weather import apply_demo_weather_floor, fetch_open_meteo_weather
 from backend.services.watsonx import run_watsonx_json_coordinator
 from backend.validator import MAX_RETRIES, make_event, validate_debris_agent
@@ -112,6 +113,7 @@ def build_prediction(timestep: int) -> dict:
 
 def execute_wildfire_dispatch(timestep: int) -> dict:
     timestep_state = TIMESTEP_STATE[timestep]
+    scenario = load_scenario(timestep)
     conditions = DEMO_SCENARIO["conditions"]
     location = DEMO_SCENARIO["location"]
     weather = fetch_open_meteo_weather(
@@ -128,7 +130,8 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
         fuel_base_rate_fpm=conditions["fuel_base_rate_fpm"],
     )
     cascade_physics = compute_cascade(
-        fire_crosses_line_a=timestep_state["fire_crosses_line_a"],
+        fire_crosses_line_a=scenario["fire_crosses_line_a"],
+        dependency_graph=scenario["dependency_graph"],
     )
     debris_physics = compute_debris_physics(
         slope_deg=conditions["slope_deg"],
@@ -226,6 +229,11 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
             "cascade": cascade_output,
             "secondary": debris_agent_output,
             "timestep": timestep,
+            "scenario": {
+                "trigger_source": scenario["trigger_source"],
+                "fire_line_distance_m": scenario["fire_line_distance_m"],
+                "dependency_graph": scenario["dependency_graph"],
+            },
         },
         fallback_output=fallback_coordinator_output,
     )
@@ -274,12 +282,20 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
                 },
             },
             "fire_perimeter": {
-                "provider": "NIFC historical GeoJSON",
-                "mode": "planned",
+                "provider": "P3 Palisades GeoJSON",
+                "mode": "loaded",
             },
             "infrastructure": {
-                "provider": "OpenStreetMap",
-                "mode": "planned",
+                "provider": "P3 OSM + curated critical infrastructure",
+                "mode": "loaded",
+            },
+            "scenario": {
+                **scenario["data_sources"],
+                "fire_crosses_line_a": scenario["fire_crosses_line_a"],
+                "trigger_source": scenario["trigger_source"],
+                "fire_line_distance_m": scenario["fire_line_distance_m"],
+                "dependency_graph": scenario["dependency_graph"],
+                "cascade_sequence": scenario["infrastructure"].get("cascade_sequence", []),
             },
             "ai_stack": ai_stack,
             "physics": ["Rothermel-inspired spread", "deterministic graph", "USGS M1-style debris flow"],

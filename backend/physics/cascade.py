@@ -54,10 +54,13 @@ def route_status_from_cascade(cascade_status: dict[str, NodeStatus]) -> dict[str
     return {"road_PCH": "CLEAR"}
 
 
-def compute_cascade(fire_crosses_line_a: bool) -> dict:
+def compute_cascade(
+    fire_crosses_line_a: bool,
+    dependency_graph: Optional[dict[str, list[str]]] = None,
+) -> dict:
     # Fire crossing Line A starts the cascade.
     failed_roots = ["transmission_line_A"] if fire_crosses_line_a else []
-    cascade_status = propagate_failures(failed_roots)
+    cascade_status = propagate_failures(failed_roots, dependency_graph)
     return {
         "cascade_status": cascade_status,
         "evacuation_routes": route_status_from_cascade(cascade_status),
