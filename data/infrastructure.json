@@ -14,8 +14,8 @@
       "type": "substation",
       "status": "OPERATIONAL",
       "label": "Malibu Substation",
-      "lat": 34.0195,
-      "lon": -118.6950
+      "lat": 34.055,
+      "lon": -118.695
     },
     "signal_PCH_1": {
       "type": "traffic_signal",
