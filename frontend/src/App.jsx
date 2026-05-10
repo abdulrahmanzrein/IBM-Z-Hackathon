@@ -620,22 +620,18 @@ export default function App() {
     {
       id: "fire",
       action: replayTasks.fire?.action || coordinatorAgencies.fire_incident_command?.recommendation || "Send crew to defend Line A.",
-      priority: minute >= FAILURE_TIMES.lineA ? "P1" : "P2",
     },
     {
       id: "utility",
       action: replayTasks.utility?.action || coordinatorAgencies.utility_operator?.recommendation || "Switch Malibu Substation to backup power.",
-      priority: minute >= FAILURE_TIMES.lineA ? "P1" : "P2",
     },
     {
       id: "traffic",
       action: replayTasks.traffic?.action || coordinatorAgencies.traffic_management?.recommendation || "Stage officers at PCH signals.",
-      priority: minute >= FAILURE_TIMES.signals ? "P1" : "P2",
     },
     {
       id: "evac",
       action: replayTasks.evac?.action || (minute >= FAILURE_TIMES.route ? "Reroute evacuees off blocked PCH." : "Send early warning to exposed homes."),
-      priority: minute >= FAILURE_TIMES.route ? "P1" : "P2",
     },
   ].map((item) => ({
     ...item,
@@ -668,6 +664,7 @@ export default function App() {
     selectedAssignment,
   });
   const selectedAsset = assetConsequences[selectedAssetId] || assetConsequences.lineA;
+  const selectedAssetDepartment = departmentMeta[selectedAsset.department];
 
   const selectAsset = (assetId) => {
     const asset = assetConsequences[assetId] || assetConsequences.lineA;
@@ -999,7 +996,7 @@ export default function App() {
         <div className="brand-lockup">
           <span className="status-dot" />
           <div>
-            <strong>StormOS</strong>
+            <strong>Foresight</strong>
             <span><MapPin size={12} /> Palisades / PCH</span>
           </div>
         </div>
@@ -1066,6 +1063,10 @@ export default function App() {
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.22 }}
       >
+        <div className="sidebar-kicker">
+          <span>{selectedAssetDepartment?.label || "Incident"}</span>
+          <b>{state.label}</b>
+        </div>
         <div className="asset-panel-top">
           <span className={`severity-badge severity-${lc(selectedAsset.status)}`}>{consequenceStatusLabel(selectedAsset.status)}</span>
           <button type="button" onClick={() => selectAsset("lineA")} aria-label="Reset selected asset">Line A</button>
@@ -1104,7 +1105,7 @@ export default function App() {
         transition={{ duration: 0.24 }}
       >
         <div className="department-strip">
-          {departmentAssignments.map(({ id, label, status, action, priority, due, Icon }) => (
+          {departmentAssignments.map(({ id, label, status, action, due, Icon }) => (
             <button
               key={id}
               className={`department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
@@ -1114,7 +1115,7 @@ export default function App() {
               <Icon size={15} />
               <span>{label}</span>
               <em>{status}</em>
-              <small>{priority} / {due}</small>
+              <small>{due === "now" ? "Due now" : `Due ${due}`}</small>
               <strong>{action}</strong>
             </button>
           ))}
