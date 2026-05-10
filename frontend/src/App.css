@@ -648,6 +648,63 @@ button {
   line-height: 1.35;
 }
 
+.incident-snapshot {
+  display: grid;
+  gap: 7px;
+}
+
+.incident-snapshot > span {
+  margin: 0;
+  color: #fcd34d;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.incident-snapshot > strong {
+  margin: 0;
+  line-height: 1.18;
+}
+
+.incident-snapshot p {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.32;
+}
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.snapshot-grid b {
+  min-width: 0;
+  border: 1px solid rgba(232, 211, 160, 0.12);
+  border-radius: 6px;
+  padding: 6px;
+  background: rgba(34, 33, 29, 0.72);
+  color: var(--muted-2);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.snapshot-grid em {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--text);
+  font-style: normal;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+}
+
 .decision-facts {
   display: flex;
   flex-wrap: wrap;
@@ -812,6 +869,12 @@ button {
   padding-left: 8px;
 }
 
+.missed-window {
+  margin-top: 9px;
+  border-left: 3px solid var(--fire);
+  padding-left: 8px;
+}
+
 .asset-action span {
   display: block;
   color: #fcd34d;
@@ -821,9 +884,27 @@ button {
   text-transform: uppercase;
 }
 
+.missed-window span {
+  display: block;
+  color: #fca5a5;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .asset-action b {
   display: block;
   margin-top: 3px;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.3;
+}
+
+.missed-window b {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
   font-size: 12px;
   font-weight: 850;
   line-height: 1.3;
@@ -913,6 +994,18 @@ button {
   line-height: 1.28;
 }
 
+.sidebar-department-pill p {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebar-department-pill strong {
   display: block;
   overflow: visible;
@@ -963,6 +1056,214 @@ button {
   color: #fcd34d;
   margin-right: 6px;
 }
+
+.source-strip {
+  margin-top: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.source-strip span {
+  min-height: 25px;
+  border: 1px solid rgba(232, 211, 160, 0.12);
+  border-radius: 6px;
+  padding: 5px 7px;
+  background: rgba(66, 61, 49, 0.62);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 820;
+  line-height: 1.2;
+}
+
+.source-strip b {
+  margin-right: 5px;
+  color: #fcd34d;
+}
+
+.agent-routing-summary {
+  margin-top: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.18);
+  border-radius: 6px;
+  padding: 8px;
+  background: rgba(120, 53, 15, 0.18);
+}
+
+.agent-routing-summary b,
+.agent-routing-summary strong,
+.agent-routing-summary em {
+  display: block;
+}
+
+.agent-routing-summary b {
+  color: #fcd34d;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.agent-routing-summary strong {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 950;
+  line-height: 1.25;
+}
+
+.agent-routing-summary em {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 780;
+  line-height: 1.28;
+}
+
+.agent-pipeline {
+  margin: 9px 0 8px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+}
+
+.pipeline-step {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid rgba(232, 211, 160, 0.1);
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: rgba(66, 61, 49, 0.42);
+  color: var(--muted-2);
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) minmax(84px, auto);
+  gap: 4px 8px;
+  align-items: start;
+}
+
+.pipeline-step.active {
+  border-color: rgba(190, 242, 100, 0.28);
+  background: rgba(63, 98, 18, 0.22);
+}
+
+.pipeline-step b {
+  grid-row: span 3;
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+  font-size: 10px;
+}
+
+.pipeline-step span {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipeline-step small {
+  grid-column: 2;
+  overflow: hidden;
+  color: #fcd34d;
+  font-size: 9px;
+  font-weight: 850;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipeline-step em {
+  grid-column: 2;
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.pipeline-step strong {
+  grid-column: 3;
+  grid-row: 1 / span 3;
+  align-self: center;
+  max-width: 112px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+.station-routing-board {
+  margin: 8px 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.station-route {
+  min-width: 0;
+  border: 1px solid rgba(232, 211, 160, 0.12);
+  border-radius: 6px;
+  padding: 7px;
+  background: rgba(47, 45, 38, 0.58);
+}
+
+.station-route span,
+.station-route b,
+.station-route strong,
+.station-route em {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.station-route span {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.station-route b {
+  margin-top: 2px;
+  color: #fcd34d;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 0.05em;
+}
+
+.station-route strong {
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1.22;
+  white-space: normal;
+}
+
+.station-route em {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 780;
+}
+
+.station-route-fire { border-color: rgba(248, 113, 113, 0.22); }
+.station-route-utility { border-color: rgba(94, 234, 212, 0.22); }
+.station-route-traffic { border-color: rgba(251, 191, 36, 0.24); }
+.station-route-evac { border-color: rgba(216, 180, 254, 0.22); }
 
 .assignment-focus,
 .assignment-area {

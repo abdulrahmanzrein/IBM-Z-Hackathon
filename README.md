@@ -47,7 +47,7 @@ Interactive timeline control allowing operators to simulate incident progression
 
 - **T+0m** → ignition state
 - **T+35m** → transmission line risk
-- **T+60m** → PCH traffic failure
+- **T+60m** → evacuation-road traffic failure
 - future cascade progression support
 
 Features:
@@ -154,18 +154,7 @@ cd IBM-Z-Hackathon/frontend
 Install dependencies:
 
 ```bash
-<<<<<<< HEAD
-export FEATHERLESS_API_KEY=...
-export FEATHERLESS_MODEL=Qwen/Qwen2.5-1.5B-Instruct
-export FEATHERLESS_TIMEOUT_SECONDS=45
-
-export WATSONX_API_KEY=...
-export WATSONX_PROJECT_ID=...
-export WATSONX_MODEL_ID=ibm/granite-3-8b-instruct
-export WATSONX_URL=https://us-south.ml.cloud.ibm.com
-=======
 npm install
->>>>>>> origin/frontend/ui
 ```
 
 Run development server:
