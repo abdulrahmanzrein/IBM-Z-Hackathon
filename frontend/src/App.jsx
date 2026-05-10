@@ -311,7 +311,7 @@ function formatClock(index) {
   return `14:${String(4 + index).padStart(2, "0")}`;
 }
 
-function formatLiveEvent(event, index, state) {
+function formatAgentMessage(event, index, state, departmentAssignments) {
   const output = event.output || {};
   const fire = output.fire || {};
   const cascade = output.cascade || {};
@@ -322,9 +322,10 @@ function formatLiveEvent(event, index, state) {
       id: `${event.type}-${index}`,
       time: formatClock(index),
       severity: "verified",
-      source: "Physics Agent",
-      title: "checks fire + infrastructure risk",
-      body: `Sends verified ${fire.threat_level || state.fireLevel} fire / ${cascade.evacuation_routes?.road_PCH || state.road} PCH status to the validator.`,
+      from: "Physics",
+      to: "Validator",
+      action: "Checked fire spread, Line A, PCH, and debris risk.",
+      evidence: `${fire.threat_level || state.fireLevel} fire risk. PCH is ${cascade.evacuation_routes?.road_PCH || state.road}.`,
     };
   }
 
@@ -333,9 +334,10 @@ function formatLiveEvent(event, index, state) {
       id: `${event.type}-${index}-${event.retry || 0}`,
       time: formatClock(index),
       severity: "critical",
-      source: "Validator Agent",
-      title: "blocks unsafe AI output",
-      body: event.violation ? "Rejects the agent answer because it disagrees with physics, then forces a retry." : "Rejects an agent answer that does not match the physics model.",
+      from: "Validator",
+      to: "AI Agents",
+      action: "Rejected unsafe output. Retrying with physics constraints.",
+      evidence: event.violation ? "AI answer contradicted the physics model." : "Agent answer did not match verified risk.",
     };
   }
 
@@ -344,42 +346,24 @@ function formatLiveEvent(event, index, state) {
       id: `${event.type}-${index}`,
       time: formatClock(index),
       severity: "verified",
-      source: "Validator Agent",
-      title: "approves corrected threat",
-      body: `Confirms ${output.threat_label || debris.debris_threat || "aligned"} secondary hazard and passes it to the coordinator.`,
+      from: "Validator",
+      to: "Coordinator",
+      action: "Approved corrected hazard. Build the shared plan.",
+      evidence: `${output.threat_label || debris.debris_threat || "Aligned"} threat is now consistent with physics.`,
     };
   }
+
+  const taskSummary = departmentAssignments.map(({ label, action }) => `${label}: ${action}`).join(" ");
 
   return {
     id: `${event.type}-${index}`,
     time: formatClock(index),
     severity: "dispatch",
-    source: "Coordinator",
-    title: "assigns department tasks",
-    body: output.dispatch_summary || "Turns verified hazards into Fire, Utility, Traffic, and Evac tasks.",
+    from: "Coordinator",
+    to: "All Stations",
+    action: output.dispatch_summary || "Issued one shared operating plan.",
+    evidence: taskSummary,
   };
-}
-
-function buildAgentFlow(liveEvents) {
-  const hasPhysics = liveEvents.some((event) => event.type === "physics_computed");
-  const hasAgentOutput = liveEvents.some((event) => event.type === "agent_rejected" || event.type === "agent_validated");
-  const hasValidator = liveEvents.some((event) => event.type === "agent_validated");
-  const hasCoordinator = liveEvents.some((event) => event.type === "coordinator_done");
-
-  const flow = [
-    { label: "Physics", detail: "checks fire + cascade", done: hasPhysics },
-    { label: "AI Agents", detail: "draft station actions", done: hasAgentOutput },
-    { label: "Validator", detail: "blocks unsafe output", done: hasValidator },
-    { label: "Coordinator", detail: "assigns one plan", done: hasCoordinator },
-    { label: "Stations", detail: "Fire / Utility / Traffic act", done: hasCoordinator },
-  ];
-
-  const currentIndex = flow.findIndex((step) => !step.done);
-
-  return flow.map((step, index) => ({
-    ...step,
-    state: step.done ? "done" : index === currentIndex ? "current" : "waiting",
-  }));
 }
 
 function taskStatus(id, minute, liveEvents) {
@@ -660,35 +644,19 @@ export default function App() {
     due: taskDue(item.id, minute),
   }));
 
-  const incidentLog = liveEvents.length
-    ? liveEvents.map((event, index) => formatLiveEvent(event, index, state))
+  const agentMessages = liveEvents.length
+    ? liveEvents.map((event, index) => formatAgentMessage(event, index, state, departmentAssignments))
     : [
         {
-          id: "local-plan",
-          time: "14:04",
+          id: "standby-comms",
+          time: "--",
           severity: "dispatch",
-          source: "Timeline",
-          title: "Shared plan ready",
-          body: `${state.label}: Fire, Utility, Traffic, and Evac get assigned tasks.`,
-        },
-        {
-          id: "local-fire",
-          time: "14:05",
-          severity: "verified",
-          source: "Physics Agent",
-          title: "checks risk",
-          body: "Checks fire spread, Line A, and PCH before tasks go out.",
-        },
-        {
-          id: "local-traffic",
-          time: "14:06",
-          severity: lc(routeStatus) === "red" ? "critical" : "dispatch",
-          source: "Coordinator",
-          title: "assigns tasks",
-          body: "All departments see the same route status and owner.",
+          from: "Dispatch",
+          to: "Agents",
+          action: "Ready to run the cross-check.",
+          evidence: "No station receives a task until physics and validator agree.",
         },
       ];
-  const agentFlow = buildAgentFlow(liveEvents);
   const selectedAssignment = departmentAssignments.find((dept) => dept.id === selectedDepartment);
   const assetConsequences = buildAssetConsequences({
     state,
@@ -1063,7 +1031,7 @@ export default function App() {
         <div className="dispatch-cluster">
           <button className="dispatch-btn" onClick={dispatch} disabled={loading}>
             <Radio size={16} />
-            {loading ? "Starting" : replayRunning ? "Replay Running" : apiData ? "Refresh Live" : "Run Live Dispatch"}
+            {loading ? "Starting" : streaming ? "Agents Talking" : replayRunning ? "Replay Running" : apiData ? "Refresh Live" : "Run Live Dispatch"}
           </button>
           {replaySteps.length > 0 && (
             <div className="replay-controls">
@@ -1145,10 +1113,9 @@ export default function App() {
             >
               <Icon size={15} />
               <span>{label}</span>
-              <strong>{status}</strong>
-              <em>{priority} / {due}</em>
-              <small>Task</small>
-              <p>{action}</p>
+              <em>{status}</em>
+              <small>{priority} / {due}</small>
+              <strong>{action}</strong>
             </button>
           ))}
         </div>
@@ -1165,27 +1132,23 @@ export default function App() {
             )}
           </Tabs.Content>
           <Tabs.Content className="ops-tab-content" value="sync">
-            <span>Agent Handoff</span>
-            <div className="agent-flow" aria-label="Agent coordination handoff">
-              {agentFlow.map((step, index) => (
-                <div className={`agent-step agent-${step.state}`} key={step.label}>
-                  <b>{index + 1}</b>
-                  <strong>{step.label}</strong>
-                  <em>{step.detail}</em>
-                </div>
+            <span>Agent Comms</span>
+            <div className="agent-comms" aria-label="Agent coordination messages">
+              {agentMessages.map((message) => (
+                <article className={`agent-message message-${message.severity}`} key={message.id}>
+                  <b>{message.time}</b>
+                  <div className="message-copy">
+                    <div className="message-route">
+                      <strong>{message.from}</strong>
+                      <span>to</span>
+                      <strong>{message.to}</strong>
+                    </div>
+                    <em>{message.action}</em>
+                    <p>{message.evidence}</p>
+                  </div>
+                </article>
               ))}
             </div>
-            <span className="feed-title">{streaming ? "Live Feed" : "Incident Feed"}</span>
-            {incidentLog.map((entry) => (
-              <p className={`feed-row feed-${entry.severity}`} key={entry.id}>
-                <b>{entry.time}</b>
-                <span className="feed-copy">
-                  <strong>{entry.source}</strong>
-                  <em>{entry.title}</em>
-                  <small>{entry.body}</small>
-                </span>
-              </p>
-            ))}
           </Tabs.Content>
         </Tabs.Root>
       </motion.section>
