@@ -75,3 +75,15 @@ def test_dispatch_events_streams_validator_sequence():
     assert "event: agent_rejected" in body
     assert "event: agent_validated" in body
     assert "event: coordinator_done" in body
+
+
+def test_dispatch_exposes_backend_driven_replay():
+    response = client.post("/dispatch/wildfire/1?timestep=3")
+
+    assert response.status_code == 200
+    replay = response.json()["replay"]
+    assert [step["minute"] for step in replay] == [0, 35, 42, 48, 60, 150]
+    assert replay[1]["asset_status"]["transmission_line_A"] == "FAILED"
+    assert replay[2]["selected_asset"] == "substation"
+    assert replay[4]["route_status"] == "BLOCKED"
+    assert replay[4]["tasks"]["evac"]["status"] == "REROUTING"

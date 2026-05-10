@@ -360,6 +360,28 @@ function formatLiveEvent(event, index, state) {
   };
 }
 
+function buildAgentFlow(liveEvents) {
+  const hasPhysics = liveEvents.some((event) => event.type === "physics_computed");
+  const hasAgentOutput = liveEvents.some((event) => event.type === "agent_rejected" || event.type === "agent_validated");
+  const hasValidator = liveEvents.some((event) => event.type === "agent_validated");
+  const hasCoordinator = liveEvents.some((event) => event.type === "coordinator_done");
+
+  const flow = [
+    { label: "Physics", detail: "checks fire + cascade", done: hasPhysics },
+    { label: "AI Agents", detail: "draft station actions", done: hasAgentOutput },
+    { label: "Validator", detail: "blocks unsafe output", done: hasValidator },
+    { label: "Coordinator", detail: "assigns one plan", done: hasCoordinator },
+    { label: "Stations", detail: "Fire / Utility / Traffic act", done: hasCoordinator },
+  ];
+
+  const currentIndex = flow.findIndex((step) => !step.done);
+
+  return flow.map((step, index) => ({
+    ...step,
+    state: step.done ? "done" : index === currentIndex ? "current" : "waiting",
+  }));
+}
+
 function taskStatus(id, minute, liveEvents) {
   const coordinatorDone = liveEvents.some((event) => event.type === "coordinator_done");
   const physicsDone = liveEvents.some((event) => event.type === "physics_computed");
@@ -403,12 +425,12 @@ function buildAssetConsequences({
       status: state.fireLevel,
       owner: "Fire IC",
       department: "fire",
-      headline: "Fire behavior is the first trigger in the cascade.",
-      action: selectedAssignment?.id === "fire" ? selectedAssignment.action : "Defend Line A before the fire reaches the utility corridor.",
+      headline: "Fire is moving toward the utility corridor.",
+      action: selectedAssignment?.id === "fire" ? selectedAssignment.action : "Hold fire off Line A.",
       chain: [
-        "Wind pushes fire toward Line A",
-        "Line A failure starts utility cascade",
-        "PCH evacuation slows if signals fail",
+        "Fire moves toward Line A",
+        "Line A can fail",
+        "PCH evacuation can slow",
       ],
       evidence: [`Wind ${windMph.toFixed(0)} mph`, `Trigger ${trigger.replaceAll("_", " ")}`, `T+${minute}m forecast`],
     },
@@ -417,13 +439,13 @@ function buildAssetConsequences({
       status: state.power,
       owner: "Fire IC + Utility",
       department: "fire",
-      headline: "This is the failure point that starts the whole chain.",
-      action: "Protect the corridor and prepare utility switching before Line A fails.",
+      headline: "If this line fails, the cascade starts.",
+      action: "Hold fire off Line A. Utility prepares backup switching.",
       chain: [
         "Line A fails",
-        "Malibu Substation loses upstream power",
-        "PCH signals go dark",
-        "PCH evacuation route blocks",
+        "Substation fails",
+        "PCH signals fail",
+        "PCH route blocks",
       ],
       evidence: [`Failure window ${taskDue("fire", minute)}`, `Power ${state.power}`, `Fire threat ${state.fireLevel}`],
     },
@@ -432,13 +454,13 @@ function buildAssetConsequences({
       status: state.substation,
       owner: "Utility",
       department: "utility",
-      headline: "Utility switching can prevent traffic infrastructure from failing.",
-      action: "Switch Malibu load to backup feed and tell Traffic before signals degrade.",
+      headline: "This feeds the PCH traffic signals.",
+      action: "Switch Malibu load to backup. Warn Traffic before signals fail.",
       chain: [
-        "Line A fails upstream",
-        "Substation drops power",
-        "PCH signals lose control",
-        "Traffic officers must run manual control",
+        "Line A fails",
+        "Substation loses power",
+        "Signals lose power",
+        "Traffic goes manual",
       ],
       evidence: [`Substation ${state.substation}`, `Switching ${taskDue("utility", minute)}`, "Depends on Line A"],
     },
@@ -447,13 +469,13 @@ function buildAssetConsequences({
       status: routeStatus,
       owner: "Traffic",
       department: "traffic",
-      headline: "This is the life-safety route responders must keep moving.",
-      action: "Stage officers at PCH control points before signals fail.",
+      headline: "This is the main evacuation route.",
+      action: "Put officers on PCH intersections before signals fail.",
       chain: [
         "Signals degrade",
-        "Manual traffic control is needed",
+        "Officers take control",
         "Evacuation flow slows",
-        "4.2K exposed residents lose the clear route",
+        "4.2K residents need routing",
       ],
       evidence: [`Route ${routeStatus}`, `Signals ${state.signals}`, `Traffic action ${taskDue("traffic", minute)}`],
     },
@@ -462,13 +484,13 @@ function buildAssetConsequences({
       status: routeStatus === "BLOCKED" ? "CRITICAL" : "AT RISK",
       owner: "Evacuation",
       department: "evac",
-      headline: "Residents become harder to move if PCH loses capacity.",
-      action: "Send early evacuation alerts while the route is still usable.",
+      headline: "These homes depend on PCH staying open.",
+      action: "Warn residents before PCH slows or blocks.",
       chain: [
-        "Fire threatens utility corridor",
-        "PCH traffic controls degrade",
-        "Evacuation time increases",
-        "4.2K homes need earlier notice",
+        "Utility corridor fails",
+        "PCH controls degrade",
+        "Exit time increases",
+        "Homes need early warning",
       ],
       evidence: ["4.2K exposed", `PCH ${routeStatus}`, `Evac action ${taskDue("evac", minute)}`],
     },
@@ -477,16 +499,45 @@ function buildAssetConsequences({
       status: state.debrisActive ? "HIGH" : "MONITOR",
       owner: "Fire IC + Traffic",
       department: "traffic",
-      headline: "Burned slopes become a second hazard once rain is involved.",
-      action: "Keep responders and evacuees out of the downslope polygon.",
+      headline: "Rain can move burned slope debris into routes.",
+      action: "Keep crews and evacuees out of this downslope area.",
       chain: [
-        "Fire burns steep slope",
-        "Rainfall triggers debris-flow risk",
-        "Responder staging becomes unsafe",
-        "Traffic reroutes around the hazard",
+        "Fire burns slope",
+        "Rain triggers debris",
+        "Staging becomes unsafe",
+        "Traffic reroutes",
       ],
       evidence: [`Rain ${rainInHr.toFixed(2)} in/hr`, "Slope 34 deg", "Burn severity 78%"],
     },
+  };
+}
+
+function assetDepartment(assetId) {
+  if (assetId === "substation") return "utility";
+  if (assetId === "pch" || assetId === "debris") return "traffic";
+  if (assetId === "homes") return "evac";
+  return "fire";
+}
+
+function stateFromReplay(baseState, replayStep) {
+  if (!replayStep) return baseState;
+  const assets = replayStep.asset_status || {};
+  const signalStatus = assets.signal_PCH_1 === "FAILED" || assets.signal_PCH_2 === "FAILED"
+    ? "FAILED"
+    : assets.signal_PCH_1 === "AT_RISK" || assets.signal_PCH_2 === "AT_RISK"
+      ? "DEGRADED"
+      : baseState.signals;
+
+  return {
+    ...baseState,
+    label: replayStep.label || baseState.label,
+    phase: replayStep.minute >= FAILURE_TIMES.debris ? "Secondary" : replayStep.minute >= FAILURE_TIMES.lineA ? "Cascade" : "Prediction",
+    next: replayStep.event || baseState.next,
+    power: assets.transmission_line_A || baseState.power,
+    substation: assets.substation_malibu || baseState.substation,
+    signals: signalStatus,
+    road: replayStep.route_status || assets.road_PCH || baseState.road,
+    debrisActive: assets.debris_flow_zone_malibu === "HIGH" || baseState.debrisActive,
   };
 }
 
@@ -496,11 +547,16 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [liveEvents, setLiveEvents] = useState([]);
+  const [replaySteps, setReplaySteps] = useState([]);
+  const [replayIndex, setReplayIndex] = useState(0);
+  const [replayRunning, setReplayRunning] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState("lineA");
   const [selectedDepartment, setSelectedDepartment] = useState("fire");
+  const [activeOpsTab, setActiveOpsTab] = useState("plan");
   const [fireKeyframes, setFireKeyframes] = useState([]);
   const [osmData, setOsmData] = useState(null);
   const streamRef = useRef(null);
+  const replayRef = useRef(null);
   const [visibleLayers, setVisibleLayers] = useState({
     fuel: true,
     ember: true,
@@ -531,10 +587,13 @@ export default function App() {
   useEffect(() => {
     return () => {
       streamRef.current?.close();
+      if (replayRef.current) clearInterval(replayRef.current);
     };
   }, []);
 
-  const state = deriveIncidentState(minute);
+  const activeReplayStep = replaySteps[replayIndex] || null;
+  const baseState = deriveIncidentState(minute);
+  const state = stateFromReplay(baseState, activeReplayStep);
   const fireGeoJSON = useMemo(() => {
     if (fireKeyframes.length < 2) return null;
     const sorted = [...fireKeyframes].sort((a, b) => a.minute - b.minute);
@@ -572,31 +631,32 @@ export default function App() {
   ];
 
   const coordinatorAgencies = apiData?.agents?.coordinator?.agencies || {};
+  const replayTasks = activeReplayStep?.tasks || {};
   const departmentAssignments = [
     {
       id: "fire",
-      action: coordinatorAgencies.fire_incident_command?.recommendation || "Defend Line A before the fire reaches the corridor.",
+      action: replayTasks.fire?.action || coordinatorAgencies.fire_incident_command?.recommendation || "Send crew to defend Line A.",
       priority: minute >= FAILURE_TIMES.lineA ? "P1" : "P2",
     },
     {
       id: "utility",
-      action: coordinatorAgencies.utility_operator?.recommendation || "Prepare backup feed switching for Malibu load.",
+      action: replayTasks.utility?.action || coordinatorAgencies.utility_operator?.recommendation || "Switch Malibu Substation to backup power.",
       priority: minute >= FAILURE_TIMES.lineA ? "P1" : "P2",
     },
     {
       id: "traffic",
-      action: coordinatorAgencies.traffic_management?.recommendation || "Pre-stage officers for PCH traffic control.",
+      action: replayTasks.traffic?.action || coordinatorAgencies.traffic_management?.recommendation || "Stage officers at PCH signals.",
       priority: minute >= FAILURE_TIMES.signals ? "P1" : "P2",
     },
     {
       id: "evac",
-      action: minute >= FAILURE_TIMES.route ? "Reroute evacuees away from blocked PCH." : "Alert exposed neighborhoods before PCH slows.",
+      action: replayTasks.evac?.action || (minute >= FAILURE_TIMES.route ? "Reroute evacuees off blocked PCH." : "Send early warning to exposed homes."),
       priority: minute >= FAILURE_TIMES.route ? "P1" : "P2",
     },
   ].map((item) => ({
     ...item,
     ...departmentMeta[item.id],
-    status: taskStatus(item.id, minute, liveEvents),
+    status: replayTasks[item.id]?.status || taskStatus(item.id, minute, liveEvents),
     due: taskDue(item.id, minute),
   }));
 
@@ -609,25 +669,26 @@ export default function App() {
           severity: "dispatch",
           source: "Timeline",
           title: "Shared plan ready",
-          body: `${state.label}: Coordinator prepares owned tasks for Fire, Utility, Traffic, and Evac.`,
+          body: `${state.label}: Fire, Utility, Traffic, and Evac get assigned tasks.`,
         },
         {
           id: "local-fire",
           time: "14:05",
           severity: "verified",
           source: "Physics Agent",
-          title: "checks the forecast",
-          body: "Fire spread, power risk, and PCH status are checked before any task is sent.",
+          title: "checks risk",
+          body: "Checks fire spread, Line A, and PCH before tasks go out.",
         },
         {
           id: "local-traffic",
           time: "14:06",
           severity: lc(routeStatus) === "red" ? "critical" : "dispatch",
           source: "Coordinator",
-          title: "keeps everyone synced",
-          body: "All departments see the same route status and assignments.",
+          title: "assigns tasks",
+          body: "All departments see the same route status and owner.",
         },
       ];
+  const agentFlow = buildAgentFlow(liveEvents);
   const selectedAssignment = departmentAssignments.find((dept) => dept.id === selectedDepartment);
   const assetConsequences = buildAssetConsequences({
     state,
@@ -652,15 +713,69 @@ export default function App() {
     setStreaming(false);
   };
 
+  const closeReplay = () => {
+    if (replayRef.current) clearInterval(replayRef.current);
+    replayRef.current = null;
+    setReplayRunning(false);
+  };
+
+  const applyReplayStep = (step, index) => {
+    setReplayIndex(index);
+    setMinute(step.minute);
+    setSelectedAssetId(step.selected_asset || "lineA");
+    setSelectedDepartment(assetDepartment(step.selected_asset));
+  };
+
+  const startReplay = (steps) => {
+    closeReplay();
+    if (!steps?.length) return;
+    setReplaySteps(steps);
+    applyReplayStep(steps[0], 0);
+    setReplayRunning(true);
+
+    let nextIndex = 1;
+    replayRef.current = setInterval(() => {
+      if (nextIndex >= steps.length) {
+        closeReplay();
+        return;
+      }
+      applyReplayStep(steps[nextIndex], nextIndex);
+      nextIndex += 1;
+    }, 1400);
+  };
+
+  const toggleReplay = () => {
+    if (!replaySteps.length) return;
+    if (replayRunning) {
+      closeReplay();
+      return;
+    }
+
+    const nextSteps = replaySteps.slice(Math.min(replayIndex + 1, replaySteps.length - 1));
+    startReplay(nextSteps.length ? nextSteps : replaySteps);
+  };
+
+  const resetReplay = () => {
+    closeReplay();
+    setReplaySteps([]);
+    setReplayIndex(0);
+    setMinute(0);
+    setSelectedAssetId("lineA");
+    setSelectedDepartment("fire");
+  };
+
   const dispatch = async () => {
     setLoading(true);
+    setActiveOpsTab("sync");
     closeLiveStream();
+    closeReplay();
     setLiveEvents([]);
     try {
       const r = await fetch(`${BASE_URL}/dispatch/wildfire/1?timestep=${backendTimestepForMinute(minute)}`, { method: "POST" });
       if (r.ok) {
         const data = await r.json();
         setApiData(data);
+        startReplay(data.replay || []);
 
         const stream = new EventSource(`${BASE_URL}/dispatch/wildfire/1/events?timestep=${backendTimestepForMinute(minute)}&delay_seconds=0.55`);
         streamRef.current = stream;
@@ -691,6 +806,9 @@ export default function App() {
 
   const updateMinute = (value) => {
     closeLiveStream();
+    closeReplay();
+    setReplaySteps([]);
+    setReplayIndex(0);
     setMinute(value);
     setApiData(null);
     setLiveEvents([]);
@@ -942,10 +1060,18 @@ export default function App() {
           </div>
         </div>
 
-        <button className="dispatch-btn" onClick={dispatch} disabled={loading}>
-          <Radio size={16} />
-          {loading ? "Starting" : streaming ? "Streaming Live" : apiData ? "Refresh Live" : "Run Live Dispatch"}
-        </button>
+        <div className="dispatch-cluster">
+          <button className="dispatch-btn" onClick={dispatch} disabled={loading}>
+            <Radio size={16} />
+            {loading ? "Starting" : replayRunning ? "Replay Running" : apiData ? "Refresh Live" : "Run Live Dispatch"}
+          </button>
+          {replaySteps.length > 0 && (
+            <div className="replay-controls">
+              <button type="button" onClick={toggleReplay}>{replayRunning ? "Pause" : "Play"}</button>
+              <button type="button" onClick={resetReplay}>Reset</button>
+            </div>
+          )}
+        </div>
       </header>
 
       <aside className="layer-rail">
@@ -988,7 +1114,7 @@ export default function App() {
           <span>Status <b>{selectedAsset.status}</b></span>
         </div>
         <div className="asset-action">
-          <span>Responder action</span>
+          <span>Do this now</span>
           <b>{selectedAsset.action}</b>
         </div>
         <ol className="asset-chain">
@@ -1010,7 +1136,7 @@ export default function App() {
         transition={{ duration: 0.24 }}
       >
         <div className="department-strip">
-          {departmentAssignments.map(({ id, label, asset, status, action, priority, due, channel, Icon }) => (
+          {departmentAssignments.map(({ id, label, status, action, priority, due, Icon }) => (
             <button
               key={id}
               className={`department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
@@ -1021,25 +1147,35 @@ export default function App() {
               <span>{label}</span>
               <strong>{status}</strong>
               <em>{priority} / {due}</em>
-              <small>{channel} - {asset}</small>
+              <small>Task</small>
               <p>{action}</p>
             </button>
           ))}
         </div>
-        <Tabs.Root className="ops-tabs" defaultValue="plan">
+        <Tabs.Root className="ops-tabs" value={activeOpsTab} onValueChange={setActiveOpsTab}>
           <Tabs.List className="ops-tab-list" aria-label="Responder operating details">
             <Tabs.Trigger className="ops-tab-trigger" value="plan">Plan</Tabs.Trigger>
             <Tabs.Trigger className="ops-tab-trigger" value="sync">Sync</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content className="ops-tab-content" value="plan">
-            <span>Common Operating Plan</span>
-            <strong>{apiData?.agents?.coordinator?.incident_objective || "Keep PCH evacuation open while departments act on the same plan."}</strong>
+            <span>Shared Plan</span>
+            <strong>{apiData?.agents?.coordinator?.incident_objective || "Keep PCH open. Stop the cascade before evacuation slows."}</strong>
             {selectedAssignment && (
               <p><b>{selectedAssignment.label}</b>{selectedAssignment.action}</p>
             )}
           </Tabs.Content>
           <Tabs.Content className="ops-tab-content" value="sync">
-            <span>{streaming ? "Live Incident Feed" : "Incident Feed"}</span>
+            <span>Agent Handoff</span>
+            <div className="agent-flow" aria-label="Agent coordination handoff">
+              {agentFlow.map((step, index) => (
+                <div className={`agent-step agent-${step.state}`} key={step.label}>
+                  <b>{index + 1}</b>
+                  <strong>{step.label}</strong>
+                  <em>{step.detail}</em>
+                </div>
+              ))}
+            </div>
+            <span className="feed-title">{streaming ? "Live Feed" : "Incident Feed"}</span>
             {incidentLog.map((entry) => (
               <p className={`feed-row feed-${entry.severity}`} key={entry.id}>
                 <b>{entry.time}</b>
