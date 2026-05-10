@@ -42,6 +42,15 @@ const FAILURE_TIMES = {
   route: 60,
   debris: 150,
 };
+const TICKER_MS = 300;
+const FAILURE_PAUSE_MS = 2500;
+const FAILURE_NODE_MAP = {
+  [FAILURE_TIMES.lineA]: "Line A",
+  [FAILURE_TIMES.substation]: "Substation",
+  [FAILURE_TIMES.signals]: "PCH Signals",
+  [FAILURE_TIMES.route]: "PCH Route",
+  [FAILURE_TIMES.debris]: null,
+};
 
 const FIRE_KEYFRAMES = [
   { minute: 0, file: "/geojson/palisades_T0.geojson" },
@@ -505,27 +514,6 @@ function assetDepartment(assetId) {
   return "fire";
 }
 
-function stateFromReplay(baseState, replayStep) {
-  if (!replayStep) return baseState;
-  const assets = replayStep.asset_status || {};
-  const signalStatus = assets.signal_PCH_1 === "FAILED" || assets.signal_PCH_2 === "FAILED"
-    ? "FAILED"
-    : assets.signal_PCH_1 === "AT_RISK" || assets.signal_PCH_2 === "AT_RISK"
-      ? "DEGRADED"
-      : baseState.signals;
-
-  return {
-    ...baseState,
-    label: replayStep.label || baseState.label,
-    phase: replayStep.minute >= FAILURE_TIMES.debris ? "Secondary" : replayStep.minute >= FAILURE_TIMES.lineA ? "Cascade" : "Prediction",
-    next: replayStep.event || baseState.next,
-    power: assets.transmission_line_A || baseState.power,
-    substation: assets.substation_malibu || baseState.substation,
-    signals: signalStatus,
-    road: replayStep.route_status || assets.road_PCH || baseState.road,
-    debrisActive: assets.debris_flow_zone_malibu === "HIGH" || baseState.debrisActive,
-  };
-}
 
 export default function App() {
   const [minute, setMinute] = useState(0);
@@ -533,20 +521,17 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [liveEvents, setLiveEvents] = useState([]);
-  const [replaySteps, setReplaySteps] = useState([]);
-  const [replayIndex, setReplayIndex] = useState(0);
-  const [replayRunning, setReplayRunning] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [pausedForFailure, setPausedForFailure] = useState(false);
+  const [flashingNode, setFlashingNode] = useState(null);
   const [selectedAssetId, setSelectedAssetId] = useState("lineA");
   const [selectedDepartment, setSelectedDepartment] = useState("fire");
   const [activeOpsTab, setActiveOpsTab] = useState("plan");
-<<<<<<< HEAD
-=======
   const [sidebarOpen, setSidebarOpen] = useState(true);
->>>>>>> origin/frontend/ui
   const [fireKeyframes, setFireKeyframes] = useState([]);
   const [osmData, setOsmData] = useState(null);
   const streamRef = useRef(null);
-  const replayRef = useRef(null);
+  const tickerRef = useRef(null);
   const [visibleLayers, setVisibleLayers] = useState({
     fuel: true,
     ember: true,
@@ -577,13 +562,38 @@ export default function App() {
   useEffect(() => {
     return () => {
       streamRef.current?.close();
-      if (replayRef.current) clearInterval(replayRef.current);
+      if (tickerRef.current) clearInterval(tickerRef.current);
     };
   }, []);
 
-  const activeReplayStep = replaySteps[replayIndex] || null;
-  const baseState = deriveIncidentState(minute);
-  const state = stateFromReplay(baseState, activeReplayStep);
+  useEffect(() => {
+    if (!playing || pausedForFailure) return;
+    tickerRef.current = setInterval(() => {
+      setMinute((prev) => {
+        if (prev >= INCIDENT_DURATION_MIN) {
+          setPlaying(false);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, TICKER_MS);
+    return () => clearInterval(tickerRef.current);
+  }, [playing, pausedForFailure]);
+
+  useEffect(() => {
+    if (!playing) return;
+    const nodeLabel = FAILURE_NODE_MAP[minute];
+    if (!(minute in FAILURE_NODE_MAP)) return;
+    setPausedForFailure(true);
+    if (nodeLabel) setFlashingNode(nodeLabel);
+    const t = setTimeout(() => {
+      setFlashingNode(null);
+      setPausedForFailure(false);
+    }, FAILURE_PAUSE_MS);
+    return () => clearTimeout(t);
+  }, [minute, playing]);
+
+  const state = deriveIncidentState(minute);
   const fireGeoJSON = useMemo(() => {
     if (fireKeyframes.length < 2) return null;
     const sorted = [...fireKeyframes].sort((a, b) => a.minute - b.minute);
@@ -621,44 +631,27 @@ export default function App() {
   ];
 
   const coordinatorAgencies = apiData?.agents?.coordinator?.agencies || {};
-  const replayTasks = activeReplayStep?.tasks || {};
   const departmentAssignments = [
     {
       id: "fire",
-      action: replayTasks.fire?.action || coordinatorAgencies.fire_incident_command?.recommendation || "Send crew to defend Line A.",
-<<<<<<< HEAD
-      priority: minute >= FAILURE_TIMES.lineA ? "P1" : "P2",
-=======
->>>>>>> origin/frontend/ui
+      action: coordinatorAgencies.fire_incident_command?.recommendation || "Send crew to defend Line A.",
     },
     {
       id: "utility",
-      action: replayTasks.utility?.action || coordinatorAgencies.utility_operator?.recommendation || "Switch Malibu Substation to backup power.",
-<<<<<<< HEAD
-      priority: minute >= FAILURE_TIMES.lineA ? "P1" : "P2",
-=======
->>>>>>> origin/frontend/ui
+      action: coordinatorAgencies.utility_operator?.recommendation || "Switch Malibu Substation to backup power.",
     },
     {
       id: "traffic",
-      action: replayTasks.traffic?.action || coordinatorAgencies.traffic_management?.recommendation || "Stage officers at PCH signals.",
-<<<<<<< HEAD
-      priority: minute >= FAILURE_TIMES.signals ? "P1" : "P2",
-=======
->>>>>>> origin/frontend/ui
+      action: coordinatorAgencies.traffic_management?.recommendation || "Stage officers at PCH signals.",
     },
     {
       id: "evac",
-      action: replayTasks.evac?.action || (minute >= FAILURE_TIMES.route ? "Reroute evacuees off blocked PCH." : "Send early warning to exposed homes."),
-<<<<<<< HEAD
-      priority: minute >= FAILURE_TIMES.route ? "P1" : "P2",
-=======
->>>>>>> origin/frontend/ui
+      action: minute >= FAILURE_TIMES.route ? "Reroute evacuees off blocked PCH." : "Send early warning to exposed homes.",
     },
   ].map((item) => ({
     ...item,
     ...departmentMeta[item.id],
-    status: replayTasks[item.id]?.status || taskStatus(item.id, minute, liveEvents),
+    status: taskStatus(item.id, minute, liveEvents),
     due: taskDue(item.id, minute),
   }));
 
@@ -686,10 +679,7 @@ export default function App() {
     selectedAssignment,
   });
   const selectedAsset = assetConsequences[selectedAssetId] || assetConsequences.lineA;
-<<<<<<< HEAD
-=======
   const selectedAssetDepartment = departmentMeta[selectedAsset.department];
->>>>>>> origin/frontend/ui
 
   const selectAsset = (assetId) => {
     const asset = assetConsequences[assetId] || assetConsequences.lineA;
@@ -703,52 +693,18 @@ export default function App() {
     setStreaming(false);
   };
 
-  const closeReplay = () => {
-    if (replayRef.current) clearInterval(replayRef.current);
-    replayRef.current = null;
-    setReplayRunning(false);
+  const pauseTicker = () => {
+    if (tickerRef.current) clearInterval(tickerRef.current);
+    tickerRef.current = null;
+    setPlaying(false);
+    setPausedForFailure(false);
+    setFlashingNode(null);
   };
 
-  const applyReplayStep = (step, index) => {
-    setReplayIndex(index);
-    setMinute(step.minute);
-    setSelectedAssetId(step.selected_asset || "lineA");
-    setSelectedDepartment(assetDepartment(step.selected_asset));
-  };
+  const startTicker = () => setPlaying(true);
 
-  const startReplay = (steps) => {
-    closeReplay();
-    if (!steps?.length) return;
-    setReplaySteps(steps);
-    applyReplayStep(steps[0], 0);
-    setReplayRunning(true);
-
-    let nextIndex = 1;
-    replayRef.current = setInterval(() => {
-      if (nextIndex >= steps.length) {
-        closeReplay();
-        return;
-      }
-      applyReplayStep(steps[nextIndex], nextIndex);
-      nextIndex += 1;
-    }, 1400);
-  };
-
-  const toggleReplay = () => {
-    if (!replaySteps.length) return;
-    if (replayRunning) {
-      closeReplay();
-      return;
-    }
-
-    const nextSteps = replaySteps.slice(Math.min(replayIndex + 1, replaySteps.length - 1));
-    startReplay(nextSteps.length ? nextSteps : replaySteps);
-  };
-
-  const resetReplay = () => {
-    closeReplay();
-    setReplaySteps([]);
-    setReplayIndex(0);
+  const resetTicker = () => {
+    pauseTicker();
     setMinute(0);
     setSelectedAssetId("lineA");
     setSelectedDepartment("fire");
@@ -758,14 +714,12 @@ export default function App() {
     setLoading(true);
     setActiveOpsTab("sync");
     closeLiveStream();
-    closeReplay();
     setLiveEvents([]);
     try {
       const r = await fetch(`${BASE_URL}/dispatch/wildfire/1?timestep=${backendTimestepForMinute(minute)}`, { method: "POST" });
       if (r.ok) {
         const data = await r.json();
         setApiData(data);
-        startReplay(data.replay || []);
 
         const stream = new EventSource(`${BASE_URL}/dispatch/wildfire/1/events?timestep=${backendTimestepForMinute(minute)}&delay_seconds=0.55`);
         streamRef.current = stream;
@@ -796,9 +750,7 @@ export default function App() {
 
   const updateMinute = (value) => {
     closeLiveStream();
-    closeReplay();
-    setReplaySteps([]);
-    setReplayIndex(0);
+    pauseTicker();
     setMinute(value);
     setApiData(null);
     setLiveEvents([]);
@@ -1053,14 +1005,14 @@ export default function App() {
         <div className="dispatch-cluster">
           <button className="dispatch-btn" onClick={dispatch} disabled={loading}>
             <Radio size={16} />
-            {loading ? "Starting" : streaming ? "Agents Talking" : replayRunning ? "Replay Running" : apiData ? "Refresh Live" : "Run Live Dispatch"}
+            {loading ? "Starting" : streaming ? "Agents Talking" : apiData ? "Refresh Live" : "Run Live Dispatch"}
           </button>
-          {replaySteps.length > 0 && (
-            <div className="replay-controls">
-              <button type="button" onClick={toggleReplay}>{replayRunning ? "Pause" : "Play"}</button>
-              <button type="button" onClick={resetReplay}>Reset</button>
-            </div>
-          )}
+          <div className="replay-controls">
+            <button type="button" onClick={playing || pausedForFailure ? pauseTicker : startTicker}>
+              {playing || pausedForFailure ? "Pause" : "Play"}
+            </button>
+            <button type="button" onClick={resetTicker}>Reset</button>
+          </div>
         </div>
       </header>
 
@@ -1083,30 +1035,20 @@ export default function App() {
         ))}
       </aside>
 
-<<<<<<< HEAD
-      <motion.section
-        className="consequence-panel"
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-=======
       <motion.aside
         className="consequence-panel"
         data-sidebar="sidebar"
         data-side="right"
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: sidebarOpen ? 1 : 0, x: sidebarOpen ? 0 : "100%" }}
->>>>>>> origin/frontend/ui
         transition={{ duration: 0.22 }}
         aria-label="Operations sidebar"
         aria-hidden={!sidebarOpen}
       >
-<<<<<<< HEAD
-=======
         <div className="sidebar-kicker">
           <span>{selectedAssetDepartment?.label || "Incident"}</span>
           <b>{state.label}</b>
         </div>
->>>>>>> origin/frontend/ui
         <div className="asset-panel-top">
           <span className={`severity-badge severity-${lc(selectedAsset.status)}`}>{consequenceStatusLabel(selectedAsset.status)}</span>
           <button type="button" onClick={() => selectAsset("lineA")} aria-label="Reset selected asset">Line A</button>
@@ -1122,8 +1064,6 @@ export default function App() {
           <span>Owner <b>{selectedAsset.owner}</b></span>
           <span>Status <b>{selectedAsset.status}</b></span>
         </div>
-<<<<<<< HEAD
-=======
         <section className="sidebar-section" aria-label="Task ownership">
           <span>Task Ownership</span>
           <div className="sidebar-department-list">
@@ -1143,7 +1083,6 @@ export default function App() {
             ))}
           </div>
         </section>
->>>>>>> origin/frontend/ui
         <div className="asset-action">
           <span>Do this now</span>
           <b>{selectedAsset.action}</b>
@@ -1156,59 +1095,21 @@ export default function App() {
         <div className="asset-evidence">
           {selectedAsset.evidence.map((item) => (
             <span key={item}>{item}</span>
-<<<<<<< HEAD
-          ))}
-        </div>
-      </motion.section>
-
-      <motion.section
-        className="coordination-layer"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.24 }}
-      >
-        <div className="department-strip">
-          {departmentAssignments.map(({ id, label, status, action, priority, due, Icon }) => (
-            <button
-              key={id}
-              className={`department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
-              onClick={() => setSelectedDepartment(id)}
-              title={action}
-            >
-              <Icon size={15} />
-              <span>{label}</span>
-              <em>{status}</em>
-              <small>{priority} / {due}</small>
-              <strong>{action}</strong>
-            </button>
-          ))}
-        </div>
-        <Tabs.Root className="ops-tabs" value={activeOpsTab} onValueChange={setActiveOpsTab}>
-=======
           ))}
         </div>
         <Tabs.Root className="sidebar-tabs" value={activeOpsTab} onValueChange={setActiveOpsTab}>
->>>>>>> origin/frontend/ui
           <Tabs.List className="ops-tab-list" aria-label="Responder operating details">
             <Tabs.Trigger className="ops-tab-trigger" value="plan">Plan</Tabs.Trigger>
             <Tabs.Trigger className="ops-tab-trigger" value="sync">Sync</Tabs.Trigger>
           </Tabs.List>
-<<<<<<< HEAD
-          <Tabs.Content className="ops-tab-content" value="plan">
-=======
           <Tabs.Content className="sidebar-tab-content" value="plan">
->>>>>>> origin/frontend/ui
             <span>Shared Plan</span>
             <strong>{apiData?.agents?.coordinator?.incident_objective || "Keep PCH open. Stop the cascade before evacuation slows."}</strong>
             {selectedAssignment && (
               <p><b>{selectedAssignment.label}</b>{selectedAssignment.action}</p>
             )}
           </Tabs.Content>
-<<<<<<< HEAD
-          <Tabs.Content className="ops-tab-content" value="sync">
-=======
           <Tabs.Content className="sidebar-tab-content" value="sync">
->>>>>>> origin/frontend/ui
             <span>Agent Comms</span>
             <div className="agent-comms" aria-label="Agent coordination messages">
               {agentMessages.map((message) => (
@@ -1246,7 +1147,7 @@ export default function App() {
           <div key={label} className="cascade-node-wrap">
             <button
               type="button"
-              className={`cascade-node node-${lc(status)}`}
+              className={`cascade-node node-${lc(status)}${flashingNode === label ? " flashing" : ""}`}
               onClick={() => selectAsset(label === "Line A" ? "lineA" : label === "Substation" ? "substation" : "pch")}
             >
               <Icon size={15} />
