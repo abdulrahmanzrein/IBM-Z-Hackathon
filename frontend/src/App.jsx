@@ -21,6 +21,8 @@ import {
   Layers,
   MapPin,
   Navigation,
+  PanelRightClose,
+  PanelRightOpen,
   Radio,
   Route,
   ShieldCheck,
@@ -537,6 +539,10 @@ export default function App() {
   const [selectedAssetId, setSelectedAssetId] = useState("lineA");
   const [selectedDepartment, setSelectedDepartment] = useState("fire");
   const [activeOpsTab, setActiveOpsTab] = useState("plan");
+<<<<<<< HEAD
+=======
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+>>>>>>> origin/frontend/ui
   const [fireKeyframes, setFireKeyframes] = useState([]);
   const [osmData, setOsmData] = useState(null);
   const streamRef = useRef(null);
@@ -620,22 +626,34 @@ export default function App() {
     {
       id: "fire",
       action: replayTasks.fire?.action || coordinatorAgencies.fire_incident_command?.recommendation || "Send crew to defend Line A.",
+<<<<<<< HEAD
       priority: minute >= FAILURE_TIMES.lineA ? "P1" : "P2",
+=======
+>>>>>>> origin/frontend/ui
     },
     {
       id: "utility",
       action: replayTasks.utility?.action || coordinatorAgencies.utility_operator?.recommendation || "Switch Malibu Substation to backup power.",
+<<<<<<< HEAD
       priority: minute >= FAILURE_TIMES.lineA ? "P1" : "P2",
+=======
+>>>>>>> origin/frontend/ui
     },
     {
       id: "traffic",
       action: replayTasks.traffic?.action || coordinatorAgencies.traffic_management?.recommendation || "Stage officers at PCH signals.",
+<<<<<<< HEAD
       priority: minute >= FAILURE_TIMES.signals ? "P1" : "P2",
+=======
+>>>>>>> origin/frontend/ui
     },
     {
       id: "evac",
       action: replayTasks.evac?.action || (minute >= FAILURE_TIMES.route ? "Reroute evacuees off blocked PCH." : "Send early warning to exposed homes."),
+<<<<<<< HEAD
       priority: minute >= FAILURE_TIMES.route ? "P1" : "P2",
+=======
+>>>>>>> origin/frontend/ui
     },
   ].map((item) => ({
     ...item,
@@ -668,6 +686,10 @@ export default function App() {
     selectedAssignment,
   });
   const selectedAsset = assetConsequences[selectedAssetId] || assetConsequences.lineA;
+<<<<<<< HEAD
+=======
+  const selectedAssetDepartment = departmentMeta[selectedAsset.department];
+>>>>>>> origin/frontend/ui
 
   const selectAsset = (assetId) => {
     const asset = assetConsequences[assetId] || assetConsequences.lineA;
@@ -783,7 +805,7 @@ export default function App() {
   };
 
   return (
-    <div className="shell">
+    <div className={`shell${sidebarOpen ? "" : " sidebar-collapsed"}`}>
       <MapContainer center={[34.067, -118.63]} zoom={12} zoomControl className="map">
         <TileLayer
           attribution='Terrain &copy; Esri'
@@ -998,8 +1020,8 @@ export default function App() {
       <header className="command-bar">
         <div className="brand-lockup">
           <span className="status-dot" />
-          <div>
-            <strong>StormOS</strong>
+          <div className="brand-copy">
+            <strong>Foresight</strong>
             <span><MapPin size={12} /> Palisades / PCH</span>
           </div>
         </div>
@@ -1043,16 +1065,17 @@ export default function App() {
       </header>
 
       <aside className="layer-rail">
-        <div className="rail-title">
+        <div className="rail-title" data-tooltip="Map layers: toggle operational overlays on the incident map.">
           <Layers size={15} />
           <span>Layers</span>
         </div>
-        {operationalLayers.map(({ id, shortLabel, Icon, risk }) => (
+        {operationalLayers.map(({ id, shortLabel, label, Icon, risk, detail, action }) => (
           <button
             key={id}
             className={visibleLayers[id] ? "layer-chip active" : "layer-chip"}
             onClick={() => setVisibleLayers((current) => ({ ...current, [id]: !current[id] }))}
-            title={`${shortLabel}: ${risk}`}
+            aria-label={`${label}. ${risk}. ${detail} ${action}`}
+            data-tooltip={`${label} (${risk}): ${detail}`}
           >
             <Icon size={16} />
             <span>{shortLabel}</span>
@@ -1060,12 +1083,30 @@ export default function App() {
         ))}
       </aside>
 
+<<<<<<< HEAD
       <motion.section
         className="consequence-panel"
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
+=======
+      <motion.aside
+        className="consequence-panel"
+        data-sidebar="sidebar"
+        data-side="right"
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: sidebarOpen ? 1 : 0, x: sidebarOpen ? 0 : "100%" }}
+>>>>>>> origin/frontend/ui
         transition={{ duration: 0.22 }}
+        aria-label="Operations sidebar"
+        aria-hidden={!sidebarOpen}
       >
+<<<<<<< HEAD
+=======
+        <div className="sidebar-kicker">
+          <span>{selectedAssetDepartment?.label || "Incident"}</span>
+          <b>{state.label}</b>
+        </div>
+>>>>>>> origin/frontend/ui
         <div className="asset-panel-top">
           <span className={`severity-badge severity-${lc(selectedAsset.status)}`}>{consequenceStatusLabel(selectedAsset.status)}</span>
           <button type="button" onClick={() => selectAsset("lineA")} aria-label="Reset selected asset">Line A</button>
@@ -1081,6 +1122,28 @@ export default function App() {
           <span>Owner <b>{selectedAsset.owner}</b></span>
           <span>Status <b>{selectedAsset.status}</b></span>
         </div>
+<<<<<<< HEAD
+=======
+        <section className="sidebar-section" aria-label="Task ownership">
+          <span>Task Ownership</span>
+          <div className="sidebar-department-list">
+            {departmentAssignments.map(({ id, label, status, action, due, Icon }) => (
+              <button
+                key={id}
+                className={`department-pill sidebar-department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
+                onClick={() => setSelectedDepartment(id)}
+                title={action}
+              >
+                <Icon size={15} />
+                <span>{label}</span>
+                <em>{status}</em>
+                <small>{due === "now" ? "Due now" : `Due ${due}`}</small>
+                <strong>{action}</strong>
+              </button>
+            ))}
+          </div>
+        </section>
+>>>>>>> origin/frontend/ui
         <div className="asset-action">
           <span>Do this now</span>
           <b>{selectedAsset.action}</b>
@@ -1093,6 +1156,7 @@ export default function App() {
         <div className="asset-evidence">
           {selectedAsset.evidence.map((item) => (
             <span key={item}>{item}</span>
+<<<<<<< HEAD
           ))}
         </div>
       </motion.section>
@@ -1120,18 +1184,31 @@ export default function App() {
           ))}
         </div>
         <Tabs.Root className="ops-tabs" value={activeOpsTab} onValueChange={setActiveOpsTab}>
+=======
+          ))}
+        </div>
+        <Tabs.Root className="sidebar-tabs" value={activeOpsTab} onValueChange={setActiveOpsTab}>
+>>>>>>> origin/frontend/ui
           <Tabs.List className="ops-tab-list" aria-label="Responder operating details">
             <Tabs.Trigger className="ops-tab-trigger" value="plan">Plan</Tabs.Trigger>
             <Tabs.Trigger className="ops-tab-trigger" value="sync">Sync</Tabs.Trigger>
           </Tabs.List>
+<<<<<<< HEAD
           <Tabs.Content className="ops-tab-content" value="plan">
+=======
+          <Tabs.Content className="sidebar-tab-content" value="plan">
+>>>>>>> origin/frontend/ui
             <span>Shared Plan</span>
             <strong>{apiData?.agents?.coordinator?.incident_objective || "Keep PCH open. Stop the cascade before evacuation slows."}</strong>
             {selectedAssignment && (
               <p><b>{selectedAssignment.label}</b>{selectedAssignment.action}</p>
             )}
           </Tabs.Content>
+<<<<<<< HEAD
           <Tabs.Content className="ops-tab-content" value="sync">
+=======
+          <Tabs.Content className="sidebar-tab-content" value="sync">
+>>>>>>> origin/frontend/ui
             <span>Agent Comms</span>
             <div className="agent-comms" aria-label="Agent coordination messages">
               {agentMessages.map((message) => (
@@ -1151,7 +1228,18 @@ export default function App() {
             </div>
           </Tabs.Content>
         </Tabs.Root>
-      </motion.section>
+      </motion.aside>
+
+      <button
+        type="button"
+        className="sidebar-toggle"
+        onClick={() => setSidebarOpen((open) => !open)}
+        aria-label={sidebarOpen ? "Close operations sidebar" : "Open operations sidebar"}
+        aria-expanded={sidebarOpen}
+        title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+      >
+        {sidebarOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+      </button>
 
       <section className="cascade-strip">
         {cascadeNodes.map(({ label, status, Icon }, i) => (

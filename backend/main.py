@@ -9,12 +9,20 @@ from backend.agents.orchestrator import execute_wildfire_dispatch, supported_tim
 from backend.schemas import DispatchResponse
 
 
-app = FastAPI(title="StormOS Backend")
+app = FastAPI(title="Foresight Backend")
 
 # Allow local frontend dev servers to call this API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,7 +30,7 @@ app.add_middleware(
 
 @app.get("/")
 async def root() -> dict:
-    return {"service": "StormOS Backend", "status": "online"}
+    return {"service": "Foresight Backend", "status": "online"}
 
 
 @app.get("/health")
