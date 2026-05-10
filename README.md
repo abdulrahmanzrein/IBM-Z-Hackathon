@@ -1,8 +1,8 @@
-# StormOS
+# Foresight
 
 **AI that stops wildfire cascades before they become disasters.**
 
-StormOS is a multi-agent emergency response coordination platform built for the **IBM Z × UNSA Sheridan Hackathon 2026**.
+Foresight is a multi-agent emergency response coordination platform built for the **IBM Z × UNSA Sheridan Hackathon 2026**.
 
 It models wildfire-driven infrastructure cascade failures in real time, validates AI recommendations against deterministic physics, and delivers coordinated emergency actions across multiple agencies before the cascade escalates.
 
@@ -26,15 +26,15 @@ We asked:
 
 > **What if emergency responders could see the full cascade before it happens—with AI recommendations they can actually trust?**
 
-That became StormOS.
+That became Foresight.
 
 ---
 
-## What StormOS Does
+## What Foresight Does
 
-StormOS simulates and coordinates wildfire infrastructure emergencies in real time.
+Foresight simulates and coordinates wildfire infrastructure emergencies in real time.
 
-For our Pacific Palisades demo scenario, StormOS predicts a cascade where:
+For our Pacific Palisades demo scenario, Foresight predicts a cascade where:
 
 🔥 Fire threatens transmission infrastructure  
 ⚡ Power infrastructure fails  
@@ -42,9 +42,9 @@ For our Pacific Palisades demo scenario, StormOS predicts a cascade where:
 🛣️ Evacuation routes become blocked  
 ⛰️ Secondary hazards (debris flow) emerge
 
-StormOS combines specialized AI agents with deterministic validation to ensure recommendations remain trustworthy.
+Foresight combines specialized AI agents with deterministic validation to ensure recommendations remain trustworthy.
 
-Instead of blindly trusting LLM outputs, StormOS verifies them against known physical models.
+Instead of blindly trusting LLM outputs, Foresight verifies them against known physical models.
 
 ---
 
@@ -99,7 +99,7 @@ Python orchestration backend implementing:
 
 ### AI Layer
 
-StormOS uses a hybrid multi-agent AI architecture:
+Foresight uses a hybrid multi-agent AI architecture:
 
 **Featherless AI**
 - hazard specialist agent
@@ -114,7 +114,7 @@ StormOS uses a hybrid multi-agent AI architecture:
 
 ### Physics Validation
 
-StormOS validates AI recommendations using deterministic models:
+Foresight validates AI recommendations using deterministic models:
 
 - **Rothermel wildfire spread modeling**
 - **Infrastructure dependency graph propagation**
@@ -126,7 +126,7 @@ If an AI recommendation violates physical constraints:
 - violation is logged
 - agent is forced to replan
 
-This makes StormOS safer and more explainable for emergency decision-making.
+This makes Foresight safer and more explainable for emergency decision-making.
 
 ---
 
@@ -179,7 +179,7 @@ curl -X POST http://localhost:8000/dispatch/wildfire/1
 Run tests:
 
 ```bash
-PYTHONPYCACHEPREFIX=/private/tmp/stormos_pycache python3 -m pytest backend/tests
+PYTHONPYCACHEPREFIX=/private/tmp/foresight_pycache python3 -m pytest backend/tests
 ```
 
 ---
@@ -260,7 +260,7 @@ The infrastructure cascade is immediately understandable.
 
 ## UN SDG Alignment
 
-StormOS supports:
+Foresight supports:
 
 **SDG 11 — Sustainable Cities and Communities**  
 Reducing disaster-related deaths through improved emergency coordination.
@@ -288,6 +288,6 @@ Planned future expansion:
 
 ## Vision
 
-StormOS aims to become a trusted operating system for disaster coordination:
+Foresight aims to become a trusted operating system for disaster coordination:
 
 **transparent AI, physics-validated recommendations, actionable emergency intelligence—when every minute matters.**

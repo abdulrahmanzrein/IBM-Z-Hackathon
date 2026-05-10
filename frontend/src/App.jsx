@@ -616,7 +616,7 @@ export default function App() {
         <div className="brand-lockup">
           <span className="status-dot" />
           <div>
-            <strong>StormOS</strong>
+            <strong>Foresight</strong>
             <span><MapPin size={12} /> Palisades / PCH</span>
           </div>
         </div>

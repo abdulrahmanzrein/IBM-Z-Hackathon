@@ -1,4 +1,4 @@
-# StormOS Physics Spec
+# Foresight Physics Spec
 
 This document defines the deterministic checks used by the P2 backend. The goal is not to claim an operational wildfire simulator. The goal is to create a testable physics truth layer that AI agents cannot contradict during the Palisades cascade demo.
 
@@ -157,7 +157,7 @@ Attempt 2: debris_flow_agent says HIGH -> accepted
 
 File: `backend/services/weather.py`
 
-StormOS fetches current weather from Open-Meteo when network access is available. The backend normalizes:
+Foresight fetches current weather from Open-Meteo when network access is available. The backend normalizes:
 
 - `temperature_f`
 - `wind_mph`
@@ -175,7 +175,7 @@ wind_direction_deg = 270
 wind_gust_mph = 45
 ```
 
-For demo stability, StormOS also applies an effective-weather floor:
+For demo stability, Foresight also applies an effective-weather floor:
 
 ```txt
 wind_mph below 35 -> use 35 for PRD critical scenario
@@ -197,7 +197,7 @@ The API returns both observed weather and effective weather in `data_sources.wea
 Run:
 
 ```bash
-PYTHONPYCACHEPREFIX=/private/tmp/stormos_pycache python3 -m pytest backend/tests
+PYTHONPYCACHEPREFIX=/private/tmp/foresight_pycache python3 -m pytest backend/tests
 ```
 
 Key tests:
