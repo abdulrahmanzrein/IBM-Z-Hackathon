@@ -998,7 +998,7 @@ export default function App() {
       <header className="command-bar">
         <div className="brand-lockup">
           <span className="status-dot" />
-          <div>
+          <div className="brand-copy">
             <strong>Foresight</strong>
             <span><MapPin size={12} /> Palisades / PCH</span>
           </div>
@@ -1043,16 +1043,17 @@ export default function App() {
       </header>
 
       <aside className="layer-rail">
-        <div className="rail-title">
+        <div className="rail-title" data-tooltip="Map layers: toggle operational overlays on the incident map.">
           <Layers size={15} />
           <span>Layers</span>
         </div>
-        {operationalLayers.map(({ id, shortLabel, Icon, risk }) => (
+        {operationalLayers.map(({ id, shortLabel, label, Icon, risk, detail, action }) => (
           <button
             key={id}
             className={visibleLayers[id] ? "layer-chip active" : "layer-chip"}
             onClick={() => setVisibleLayers((current) => ({ ...current, [id]: !current[id] }))}
-            title={`${shortLabel}: ${risk}`}
+            aria-label={`${label}. ${risk}. ${detail} ${action}`}
+            data-tooltip={`${label} (${risk}): ${detail}`}
           >
             <Icon size={16} />
             <span>{shortLabel}</span>
