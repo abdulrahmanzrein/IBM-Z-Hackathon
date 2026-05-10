@@ -21,6 +21,8 @@ import {
   Layers,
   MapPin,
   Navigation,
+  PanelRightClose,
+  PanelRightOpen,
   Radio,
   Route,
   ShieldCheck,
@@ -537,6 +539,7 @@ export default function App() {
   const [selectedAssetId, setSelectedAssetId] = useState("lineA");
   const [selectedDepartment, setSelectedDepartment] = useState("fire");
   const [activeOpsTab, setActiveOpsTab] = useState("plan");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fireKeyframes, setFireKeyframes] = useState([]);
   const [osmData, setOsmData] = useState(null);
   const streamRef = useRef(null);
@@ -780,7 +783,7 @@ export default function App() {
   };
 
   return (
-    <div className="shell">
+    <div className={`shell${sidebarOpen ? "" : " sidebar-collapsed"}`}>
       <MapContainer center={[34.067, -118.63]} zoom={12} zoomControl className="map">
         <TileLayer
           attribution='Terrain &copy; Esri'
@@ -1059,10 +1062,13 @@ export default function App() {
 
       <motion.aside
         className="consequence-panel"
+        data-sidebar="sidebar"
+        data-side="right"
         initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
+        animate={{ opacity: sidebarOpen ? 1 : 0, x: sidebarOpen ? 0 : "100%" }}
         transition={{ duration: 0.22 }}
-        aria-label="Selected asset details"
+        aria-label="Operations sidebar"
+        aria-hidden={!sidebarOpen}
       >
         <div className="sidebar-kicker">
           <span>{selectedAssetDepartment?.label || "Incident"}</span>
@@ -1083,6 +1089,25 @@ export default function App() {
           <span>Owner <b>{selectedAsset.owner}</b></span>
           <span>Status <b>{selectedAsset.status}</b></span>
         </div>
+        <section className="sidebar-section" aria-label="Task ownership">
+          <span>Task Ownership</span>
+          <div className="sidebar-department-list">
+            {departmentAssignments.map(({ id, label, status, action, due, Icon }) => (
+              <button
+                key={id}
+                className={`department-pill sidebar-department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
+                onClick={() => setSelectedDepartment(id)}
+                title={action}
+              >
+                <Icon size={15} />
+                <span>{label}</span>
+                <em>{status}</em>
+                <small>{due === "now" ? "Due now" : `Due ${due}`}</small>
+                <strong>{action}</strong>
+              </button>
+            ))}
+          </div>
+        </section>
         <div className="asset-action">
           <span>Do this now</span>
           <b>{selectedAsset.action}</b>
@@ -1131,29 +1156,16 @@ export default function App() {
         </Tabs.Root>
       </motion.aside>
 
-      <motion.section
-        className="coordination-layer"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.24 }}
+      <button
+        type="button"
+        className="sidebar-toggle"
+        onClick={() => setSidebarOpen((open) => !open)}
+        aria-label={sidebarOpen ? "Close operations sidebar" : "Open operations sidebar"}
+        aria-expanded={sidebarOpen}
+        title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
       >
-        <div className="department-strip">
-          {departmentAssignments.map(({ id, label, status, action, due, Icon }) => (
-            <button
-              key={id}
-              className={`department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
-              onClick={() => setSelectedDepartment(id)}
-              title={action}
-            >
-              <Icon size={15} />
-              <span>{label}</span>
-              <em>{status}</em>
-              <small>{due === "now" ? "Due now" : `Due ${due}`}</small>
-              <strong>{action}</strong>
-            </button>
-          ))}
-        </div>
-      </motion.section>
+        {sidebarOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+      </button>
 
       <section className="cascade-strip">
         {cascadeNodes.map(({ label, status, Icon }, i) => (
