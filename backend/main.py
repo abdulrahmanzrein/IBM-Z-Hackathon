@@ -31,20 +31,20 @@ async def health() -> dict:
 
 
 @app.post("/dispatch/wildfire/1", response_model=DispatchResponse)
-async def dispatch_wildfire(timestep: int = Query(15, description="PRD replay timestep: 0, 15, or 30")) -> dict:
+async def dispatch_wildfire(timestep: int = Query(3, description="Demo replay timestep: 0, 3, or 6 minutes")) -> dict:
     if timestep not in supported_timesteps():
-        raise HTTPException(status_code=400, detail="timestep must be one of: 0, 15, 30")
+        raise HTTPException(status_code=400, detail="timestep must be one of: 0, 3, 6")
 
     return execute_wildfire_dispatch(timestep)
 
 
 @app.get("/dispatch/wildfire/1/events")
 async def stream_dispatch_events(
-    timestep: int = Query(15, description="PRD replay timestep: 0, 15, or 30"),
+    timestep: int = Query(3, description="Demo replay timestep: 0, 3, or 6 minutes"),
     delay_seconds: float = Query(0.5, ge=0, le=5, description="Delay between streamed demo events"),
 ) -> StreamingResponse:
     if timestep not in supported_timesteps():
-        raise HTTPException(status_code=400, detail="timestep must be one of: 0, 15, 30")
+        raise HTTPException(status_code=400, detail="timestep must be one of: 0, 3, 6")
 
     dispatch = execute_wildfire_dispatch(timestep)
 

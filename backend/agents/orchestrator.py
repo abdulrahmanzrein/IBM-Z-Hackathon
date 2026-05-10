@@ -15,7 +15,7 @@ from backend.validator import MAX_RETRIES, make_event, validate_debris_agent
 # PRD demo scenario values for the Palisades cascade.
 DEMO_SCENARIO = {
     "scenario_id": "palisades_2025",
-    "default_timestep": 15,
+    "default_timestep": 3,
     "location": {
         "name": "Pacific Palisades & Malibu, Los Angeles, CA",
         "latitude": 34.045,
@@ -39,14 +39,14 @@ TIMESTEP_STATE = {
         "debris_active": False,
         "run_validator_demo": False,
     },
-    15: {
-        "label": "T+15 cascade failure",
+    3: {
+        "label": "T+3 cascade failure",
         "fire_crosses_line_a": True,
         "debris_active": True,
         "run_validator_demo": True,
     },
-    30: {
-        "label": "T+30 secondary hazard",
+    6: {
+        "label": "T+6 secondary hazard",
         "fire_crosses_line_a": True,
         "debris_active": True,
         "run_validator_demo": True,
@@ -77,7 +77,7 @@ def build_prediction(timestep: int) -> dict:
             },
         }
 
-    if timestep == 15:
+    if timestep == 3:
         return {
             "prediction_window_min": 0,
             "next_failure": "transmission_line_A",
@@ -168,8 +168,12 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
             debris_agent_output, secondary_status = run_featherless_json_agent(
                 agent_name="secondary_agent",
                 system_prompt=(
-                    "You are StormOS Secondary Agent. Assess debris flow risk from "
-                    "the provided USGS M1 physics. Return JSON only."
+                    "You are StormOS Secondary Agent, a post-fire debris-flow "
+                    "specialist for dispatch. Use the provided USGS M1 physics. "
+                    "Return JSON only and include role, finding, threat_label, "
+                    "probability, confidence, trigger, onset_window, affected_zones, "
+                    "map_annotations, and recommended_actions. Never contradict the "
+                    "physics values unless this is attempt 1 of the validator demo."
                 ),
                 payload={"debris_physics": debris_physics, "attempt": attempt},
                 fallback_output=fallback_debris_output,
@@ -182,10 +186,22 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
     else:
         debris_agent_output = {
             "agent": "debris_flow_agent",
+            "role": "Secondary hazard specialist",
+            "finding": "Post-fire debris-flow risk is inactive at ignition time.",
             "threat_label": debris_physics["debris_threat"],
             "probability": debris_physics["debris_probability"],
+            "confidence": 0.86,
+            "trigger": "secondary hazard inactive until rainfall affects burned slopes",
             "onset_window": "not active at T+0",
             "affected_zones": [],
+            "map_annotations": [],
+            "recommended_actions": [
+                {
+                    "agency": "fire_incident_command",
+                    "action": "Monitor burned slopes after fire spread.",
+                    "why": "Debris-flow risk becomes relevant after rainfall.",
+                }
+            ],
         }
         ai_stack["secondary_agent"] = {
             "provider": "Featherless",
@@ -195,12 +211,16 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
         }
 
     # Build agency-facing outputs after validation.
-    fallback_hazard_output = run_hazard_agent(fire_physics)
+    fallback_hazard_output = run_hazard_agent(fire_physics, timestep)
     hazard_output, hazard_status = run_featherless_json_agent(
         agent_name="hazard_agent",
         system_prompt=(
-            "You are StormOS Hazard Agent. Use the provided fire physics and "
-            "return JSON only."
+            "You are StormOS Hazard Agent, a fire behavior and exposure specialist "
+            "for incident command. Use the provided fire physics and return JSON "
+            "only with role, finding, threat_level, confidence, spread_rate_fpm, "
+            "direction, time_horizon_min, trigger, affected_assets, map_annotations, "
+            "recommended_actions, and structures_at_risk_30min. Never contradict "
+            "the deterministic fire physics."
         ),
         payload={"fire_physics": fire_physics, "timestep": timestep},
         fallback_output=fallback_hazard_output,
@@ -211,8 +231,10 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
     cascade_output, cascade_status = run_featherless_json_agent(
         agent_name="cascade_agent",
         system_prompt=(
-            "You are StormOS Cascade Agent. Never contradict deterministic graph "
-            "status. Return JSON only."
+            "You are StormOS Cascade Agent, an infrastructure dependency specialist. "
+            "Never contradict deterministic graph status. Return JSON only with role, "
+            "finding, confidence, trigger, next_failure, node_status, evacuation_routes, "
+            "dependency_chain, cascade_timeline, map_annotations, and recommended_actions."
         ),
         payload={"cascade_physics": cascade_physics, "timestep": timestep},
         fallback_output=fallback_cascade_output,

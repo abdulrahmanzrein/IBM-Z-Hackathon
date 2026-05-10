@@ -2,14 +2,14 @@ from backend.agents.orchestrator import build_prediction, execute_wildfire_dispa
 
 
 def test_supported_timesteps_match_prd_replay():
-    assert supported_timesteps() == (0, 15, 30)
+    assert supported_timesteps() == (0, 3, 6)
 
 
 def test_orchestrator_returns_dispatch_contract_shape():
-    result = execute_wildfire_dispatch(15)
+    result = execute_wildfire_dispatch(3)
 
     assert result["disaster_type"] == "wildfire"
-    assert result["timestep"] == 15
+    assert result["timestep"] == 3
     assert result["prediction"]["status"] == "cascade_in_progress"
     assert result["physics"]["threat_level"] == "CRITICAL"
     assert result["events"][1]["type"] == "agent_rejected"

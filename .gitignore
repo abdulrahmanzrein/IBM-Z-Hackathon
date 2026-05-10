@@ -18,12 +18,12 @@ Thumbs.db
 tmp/
 temp/
 
-# Dependencies & build (uncomment as needed)
-# node_modules/
-# dist/
-# build/
-# .venv/
-# venv/
+# Dependencies & build
+node_modules/
+dist/
+build/
+.venv/
+venv/
 
 # Python cache
 __pycache__/
