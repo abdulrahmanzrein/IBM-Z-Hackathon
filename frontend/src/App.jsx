@@ -302,6 +302,28 @@ function communityIcon(status) {
   });
 }
 
+const AGENCY_KEY = {
+  fire: "fire_incident_command",
+  utility: "utility_operator",
+  traffic: "traffic_management",
+};
+
+const ACK_POSITIONS = {
+  fire_incident_command: [34.080, -118.645],
+  utility_operator: [34.073, -118.634],
+  traffic_management: [34.046, -118.718],
+};
+
+function ackMapIcon(status) {
+  const accepted = status === "ACCEPTED";
+  return L.divIcon({
+    className: "",
+    html: `<div class="ack-map-pin ${accepted ? "ack-map-accepted" : "ack-map-denied"}">${accepted ? "✓" : "✗"}</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  });
+}
+
 export default function App() {
   const [minute, setMinute] = useState(0);
   const [apiData, setApiData] = useState(null);
@@ -309,6 +331,7 @@ export default function App() {
   const [selectedDepartment, setSelectedDepartment] = useState("fire");
   const [fireKeyframes, setFireKeyframes] = useState([]);
   const [osmData, setOsmData] = useState(null);
+  const [acknowledgments, setAcknowledgments] = useState({});
   const [visibleLayers, setVisibleLayers] = useState({
     fuel: true,
     ember: true,
@@ -335,6 +358,20 @@ export default function App() {
       ))
     ).then(setFireKeyframes).catch(() => setFireKeyframes([]));
   }, []);
+
+  useEffect(() => {
+    if (!apiData) {
+      setAcknowledgments({});
+      return;
+    }
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch(`${BASE_URL}/acknowledgments`);
+        if (r.ok) setAcknowledgments(await r.json());
+      } catch {}
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [apiData]);
 
   const state = deriveIncidentState(minute);
   const fireGeoJSON = useMemo(() => {
@@ -608,6 +645,16 @@ export default function App() {
             </Popup>
           </Polygon>
         )}
+
+        {Object.entries(ACK_POSITIONS).map(([agency, pos]) => {
+          const ack = acknowledgments[agency];
+          if (!ack || ack === "PENDING") return null;
+          return (
+            <Marker key={`ack-${agency}`} position={pos} icon={ackMapIcon(ack)}>
+              <Tooltip>{agency.replace(/_/g, " ")}: {ack}</Tooltip>
+            </Marker>
+          );
+        })}
       </MapContainer>
 
       <div className="map-vignette" />
@@ -692,19 +739,27 @@ export default function App() {
         transition={{ duration: 0.24 }}
       >
         <div className="department-strip">
-          {departmentAssignments.map(({ id, label, asset, status, action, Icon }) => (
-            <button
-              key={id}
-              className={`department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
-              onClick={() => setSelectedDepartment(id)}
-              title={action}
-            >
-              <Icon size={15} />
-              <span>{label}</span>
-              <strong>{status}</strong>
-              <em>{asset}</em>
-            </button>
-          ))}
+          {departmentAssignments.map(({ id, label, asset, status, action, Icon }) => {
+            const ack = acknowledgments[AGENCY_KEY[id]];
+            return (
+              <button
+                key={id}
+                className={`department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
+                onClick={() => setSelectedDepartment(id)}
+                title={action}
+              >
+                <Icon size={15} />
+                <span>{label}</span>
+                <strong>{status}</strong>
+                <em>{asset}</em>
+                {ack && (
+                  <span className={`ack-badge ack-${ack.toLowerCase()}`}>
+                    {ack === "ACCEPTED" ? "✓" : ack === "DENIED" ? "✗" : "•••"}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
         <Tabs.Root className="ops-tabs" defaultValue="plan">
           <Tabs.List className="ops-tab-list" aria-label="Responder operating details">

@@ -1,17 +1,17 @@
 import asyncio
 import json
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from backend.agents.orchestrator import execute_wildfire_dispatch, supported_timesteps
 from backend.schemas import DispatchResponse
+from backend.services.twilio_sms import get_acknowledgments, process_reply, send_dispatch_sms
 
 
 app = FastAPI(title="StormOS Backend")
 
-# Allow local frontend dev servers to call this API.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
@@ -19,6 +19,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.get("/")
 async def root() -> dict:
@@ -31,11 +32,17 @@ async def health() -> dict:
 
 
 @app.post("/dispatch/wildfire/1", response_model=DispatchResponse)
-async def dispatch_wildfire(timestep: int = Query(3, description="Demo replay timestep: 0, 3, or 6 minutes")) -> dict:
+async def dispatch_wildfire(
+    background_tasks: BackgroundTasks,
+    timestep: int = Query(3, description="Demo replay timestep: 0, 3, or 6 minutes"),
+) -> dict:
     if timestep not in supported_timesteps():
         raise HTTPException(status_code=400, detail="timestep must be one of: 0, 3, 6")
 
-    return execute_wildfire_dispatch(timestep)
+    result = execute_wildfire_dispatch(timestep)
+    actions = result.get("prediction", {}).get("preventive_actions", {})
+    background_tasks.add_task(send_dispatch_sms, actions)
+    return result
 
 
 @app.get("/dispatch/wildfire/1/events")
@@ -57,8 +64,16 @@ async def stream_dispatch_events(
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
+
+
+@app.post("/twilio/reply")
+async def twilio_reply(From: str = Form(""), Body: str = Form("")) -> dict:
+    process_reply(From, Body)
+    return {"status": "ok"}
+
+
+@app.get("/acknowledgments")
+async def acknowledgments() -> dict:
+    return get_acknowledgments()
