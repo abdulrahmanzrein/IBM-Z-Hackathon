@@ -413,6 +413,54 @@ function readableTrigger(trigger) {
   return normalized;
 }
 
+function incidentPhase(minute) {
+  if (minute >= FAILURE_TIMES.debris) return "washout";
+  if (minute >= FAILURE_TIMES.route) return "road_blocked";
+  if (minute >= FAILURE_TIMES.signals) return "signals_failed";
+  if (minute >= FAILURE_TIMES.substation) return "utility_failed";
+  if (minute >= FAILURE_TIMES.lineA) return "power_failed";
+  return "pre_failure";
+}
+
+const phaseActions = {
+  pre_failure: {
+    fire: "Hold the fire edge before it reaches the main power line.",
+    utility: "Prepare backup power for the utility station.",
+    traffic: "Stage officers at evacuation-road signals.",
+    evac: "Prepare early warning for exposed homes.",
+  },
+  power_failed: {
+    fire: "Move crews to protect homes and stay clear of failed power equipment.",
+    utility: "Switch the utility station to backup power now.",
+    traffic: "Move officers to evacuation-road signals before they fail.",
+    evac: "Warn exposed homes that the power failure chain has started.",
+  },
+  utility_failed: {
+    fire: "Hold the fire edge near homes while Utility restores backup power.",
+    utility: "Restore backup power and tell Traffic which signals are at risk.",
+    traffic: "Put officers at evacuation-road signals now.",
+    evac: "Send evacuation warnings before road control degrades.",
+  },
+  signals_failed: {
+    fire: "Protect homes and keep crews clear of dark intersections.",
+    utility: "Restore signal power and update Traffic every few minutes.",
+    traffic: "Control evacuation-road intersections by hand.",
+    evac: "Move residents before the evacuation road slows.",
+  },
+  road_blocked: {
+    fire: "Protect exposed homes while evacuation uses alternate routes.",
+    utility: "Restore power only where crews can work safely.",
+    traffic: "Reroute evacuees around the blocked evacuation road.",
+    evac: "Direct residents to the alternate evacuation route.",
+  },
+  washout: {
+    fire: "Keep crews out of burned-slope washout zones.",
+    utility: "Keep repair crews away from washout-prone roads.",
+    traffic: "Close washout-prone roads and route responders around them.",
+    evac: "Move residents to safer routes away from burned slopes.",
+  },
+};
+
 function buildAssetConsequences({
   state,
   minute,
@@ -422,6 +470,9 @@ function buildAssetConsequences({
   routeStatus,
   selectedAssignment,
 }) {
+  const phase = incidentPhase(minute);
+  const actions = phaseActions[phase];
+
   return {
     fire: {
       label: "Fire Perimeter",
@@ -429,7 +480,7 @@ function buildAssetConsequences({
       owner: "Fire Command",
       department: "fire",
       headline: "The fire is moving toward the main power line.",
-      action: selectedAssignment?.id === "fire" ? selectedAssignment.action : "Keep the fire away from the main power line.",
+      action: selectedAssignment?.id === "fire" ? selectedAssignment.action : actions.fire,
       chain: [
         "Fire moves toward the power line",
         "Power line can fail",
@@ -442,8 +493,8 @@ function buildAssetConsequences({
       status: state.power,
       owner: "Fire Command + Utility",
       department: "fire",
-      headline: "If this power line fails, the whole failure chain starts.",
-      action: "Keep fire away from the power line. Utility prepares backup switching.",
+      headline: state.power === "FAILED" ? "This power line failed and started the failure chain." : "If this power line fails, the whole failure chain starts.",
+      action: actions.fire,
       chain: [
         "Power line fails",
         "Utility station loses feed",
@@ -457,8 +508,8 @@ function buildAssetConsequences({
       status: state.substation,
       owner: "Utility",
       department: "utility",
-      headline: "This station helps power the evacuation-road signals.",
-      action: "Switch Malibu load to backup. Warn Traffic before signals lose power.",
+      headline: state.substation === "FAILED" ? "This station lost feed, so signal power is at risk." : "This station helps power the evacuation-road signals.",
+      action: actions.utility,
       chain: [
         "Power line fails",
         "Utility station loses feed",
@@ -472,8 +523,8 @@ function buildAssetConsequences({
       status: routeStatus,
       owner: "Traffic",
       department: "traffic",
-      headline: "This is the main road residents use to leave.",
-      action: "Put officers on key intersections before signals lose power.",
+      headline: routeStatus === "BLOCKED" ? "The main evacuation road is blocked, so traffic must reroute." : "This is the main road residents use to leave.",
+      action: actions.traffic,
       chain: [
         "Signals degrade",
         "Officers take control",
@@ -488,7 +539,7 @@ function buildAssetConsequences({
       owner: "Evacuation",
       department: "evac",
       headline: "These homes depend on the evacuation road staying open.",
-      action: "Warn residents before the road slows or blocks.",
+      action: actions.evac,
       chain: [
         "Power feed fails",
         "Traffic controls degrade",
@@ -515,37 +566,170 @@ function buildAssetConsequences({
   };
 }
 
-function stationBrief(id, minute, action) {
+function stationBrief(id, minute) {
+  const phase = incidentPhase(minute);
   const briefs = {
-    fire: {
-      target: "Keep fire away from the main power line.",
-      reason: "That power line starts the failure chain.",
-      miss: "The utility station and traffic signals can fail next.",
-      asset: "Main power-line area",
+    pre_failure: {
+      fire: {
+        target: "Hold fire before it reaches the power line.",
+        reason: "If this line fails, the utility station and road signals can fail next.",
+        miss: "The failure chain starts and evacuation becomes harder.",
+        asset: "Main power-line area",
+      },
+      utility: {
+        target: "Prepare backup power for the utility station.",
+        reason: "Backup power keeps evacuation-road signals working if the line fails.",
+        miss: "Traffic loses signal power during evacuation.",
+        asset: "Malibu utility station",
+      },
+      traffic: {
+        target: "Stage officers at evacuation-road signals.",
+        reason: "Officers can take over quickly if signals fail.",
+        miss: "Intersections jam before evacuees clear the area.",
+        asset: "Evacuation-road intersections",
+      },
+      evac: {
+        target: "Prepare warning for exposed homes.",
+        reason: "Residents need lead time before the road slows.",
+        miss: "Homes get warned after exit time is already shrinking.",
+        asset: "4,200 homes",
+      },
     },
-    utility: {
-      target: "Switch Malibu load to backup.",
-      reason: "The utility station feeds evacuation-road signals.",
-      miss: "Signals lose power during evacuation.",
-      asset: "Malibu utility station",
+    power_failed: {
+      fire: {
+        target: "Protect homes and stay clear of failed power equipment.",
+        reason: "The prevention window is over; crews now protect people and structures.",
+        miss: "Crews stay focused on a failed line while homes become exposed.",
+        asset: "Homes near fire edge",
+      },
+      utility: {
+        target: "Switch the utility station to backup power now.",
+        reason: "Backup power can keep road signals alive.",
+        miss: "The utility station fails and traffic signals go dark.",
+        asset: "Malibu utility station",
+      },
+      traffic: {
+        target: "Move officers to evacuation-road signals.",
+        reason: "Signals may fail next, so manual control must be ready.",
+        miss: "Traffic control starts after intersections already jam.",
+        asset: "Evacuation-road intersections",
+      },
+      evac: {
+        target: "Warn exposed homes that the failure chain started.",
+        reason: "Residents need to leave before the road gets worse.",
+        miss: "Warnings arrive after the route begins slowing.",
+        asset: "4,200 homes",
+      },
     },
-    traffic: {
-      target: "Put officers at evacuation-road signals.",
-      reason: "Manual control keeps evacuation moving.",
-      miss: "The road slows and blocks response access.",
-      asset: "Evacuation-road intersections",
+    utility_failed: {
+      fire: {
+        target: "Hold the fire edge near homes.",
+        reason: "Utility is restoring power while Fire protects exposed neighborhoods.",
+        miss: "The fire pushes into homes while utility crews recover power.",
+        asset: "Homes near fire edge",
+      },
+      utility: {
+        target: "Restore backup power and tell Traffic which signals are at risk.",
+        reason: "Traffic needs to know which intersections need officers first.",
+        miss: "Traffic deploys late or to the wrong intersections.",
+        asset: "Malibu utility station",
+      },
+      traffic: {
+        target: "Put officers at evacuation-road signals now.",
+        reason: "Signals are the next failure point.",
+        miss: "Signals fail before officers are in position.",
+        asset: "Evacuation-road intersections",
+      },
+      evac: {
+        target: "Send evacuation warnings before road control degrades.",
+        reason: "Residents need time while signals still partly work.",
+        miss: "People leave after intersections become manual-control only.",
+        asset: "4,200 homes",
+      },
     },
-    evac: {
-      target: "Warn exposed homes early.",
-      reason: "Residents need time before the road slows.",
-      miss: "Evacuation starts after route capacity drops.",
-      asset: "4,200 homes",
+    signals_failed: {
+      fire: {
+        target: "Protect homes and keep crews clear of dark intersections.",
+        reason: "Traffic is now controlling intersections by hand.",
+        miss: "Crews and evacuees compete for the same blocked roads.",
+        asset: "Homes near fire edge",
+      },
+      utility: {
+        target: "Restore signal power and update Traffic.",
+        reason: "Traffic needs live power status to reopen lanes safely.",
+        miss: "Manual traffic control lasts longer than needed.",
+        asset: "Malibu utility station",
+      },
+      traffic: {
+        target: "Control evacuation-road intersections by hand.",
+        reason: "Signals are down, so officers keep evacuation moving.",
+        miss: "The evacuation road slows into a blockage.",
+        asset: "Evacuation-road intersections",
+      },
+      evac: {
+        target: "Move residents before the evacuation road slows.",
+        reason: "Exit time is shrinking while intersections are manual.",
+        miss: "Residents leave after the road is already blocked.",
+        asset: "4,200 homes",
+      },
+    },
+    road_blocked: {
+      fire: {
+        target: "Protect exposed homes while evacuation uses alternate routes.",
+        reason: "The main road is blocked, so Fire must protect people who remain.",
+        miss: "Residents are trapped near the fire edge.",
+        asset: "Exposed homes",
+      },
+      utility: {
+        target: "Restore power only where crews can work safely.",
+        reason: "Blocked roads make utility repair access dangerous.",
+        miss: "Repair crews get sent into unsafe access routes.",
+        asset: "Malibu utility station",
+      },
+      traffic: {
+        target: "Reroute evacuees around the blocked road.",
+        reason: "The main evacuation road cannot carry the full load.",
+        miss: "Traffic backs up into responder access lanes.",
+        asset: "Alternate evacuation route",
+      },
+      evac: {
+        target: "Direct residents to the alternate evacuation route.",
+        reason: "People need one clear instruction once the main road blocks.",
+        miss: "Residents keep driving toward a blocked route.",
+        asset: "4,200 homes",
+      },
+    },
+    washout: {
+      fire: {
+        target: "Keep crews out of burned-slope washout zones.",
+        reason: "Burned slopes can send mud and ash onto roads.",
+        miss: "Responders stage in a new hazard zone.",
+        asset: "Burned slopes",
+      },
+      utility: {
+        target: "Keep repair crews away from washout-prone roads.",
+        reason: "Road access can fail after the fire front passes.",
+        miss: "Repair crews get stranded behind a washout.",
+        asset: "Utility access roads",
+      },
+      traffic: {
+        target: "Close washout-prone roads and reroute responders.",
+        reason: "The post-fire hazard can block response access.",
+        miss: "Responders drive into unstable roads.",
+        asset: "Washout-prone roads",
+      },
+      evac: {
+        target: "Move residents to routes away from burned slopes.",
+        reason: "Evacuation must avoid the new flood-and-mud hazard.",
+        miss: "Residents are routed through unsafe roads.",
+        asset: "Alternate evacuation route",
+      },
     },
   };
-  const brief = briefs[id];
+  const brief = briefs[phase][id];
   return {
     ...brief,
-    action,
+    action: phaseActions[phase][id],
     urgency: taskDue(id, minute),
   };
 }
@@ -698,13 +882,19 @@ export default function App() {
       id: "evac",
       action: minute >= FAILURE_TIMES.route ? "Reroute evacuees around the slowed road." : "Send early warning to exposed homes.",
     },
-  ].map((item) => ({
-    ...item,
-    ...departmentMeta[item.id],
-    status: taskStatus(item.id, minute, liveEvents),
-    due: taskDue(item.id, minute),
-    brief: stationBrief(item.id, minute, item.action),
-  }));
+  ].map((item) => {
+    const brief = stationBrief(item.id, minute);
+
+    return {
+      ...item,
+      ...departmentMeta[item.id],
+      action: brief.target,
+      sourceAction: item.action,
+      status: taskStatus(item.id, minute, liveEvents),
+      due: taskDue(item.id, minute),
+      brief,
+    };
+  });
 
   const agentMessages = liveEvents.length
     ? liveEvents.map((event, index) => formatAgentMessage(event, index, state, departmentAssignments))
@@ -1250,7 +1440,7 @@ export default function App() {
             <span>Shared Plan</span>
             <strong>{apiData?.agents?.coordinator?.incident_objective || "Keep the evacuation road open by stopping the power failure chain early."}</strong>
             {selectedAssignment && (
-              <p><b>{selectedAssignment.label}</b>{selectedAssignment.brief.target} {selectedAssignment.action}</p>
+              <p><b>{selectedAssignment.label}</b>{selectedAssignment.brief.target}</p>
             )}
             <div className="source-strip" aria-label="Data and model sources">
               {sourceChips.map((chip) => (
