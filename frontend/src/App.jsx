@@ -3,6 +3,7 @@ import "./App.css";
 import L from "leaflet";
 import * as Tabs from "@radix-ui/react-tabs";
 import { motion } from "framer-motion";
+import { simulateScenario } from "./utils/simulateScenario";
 import {
   MapContainer,
   TileLayer,
@@ -317,6 +318,21 @@ export default function App() {
     staging: true,
   });
 
+  const [scenario, setScenario] = useState({
+    windSpeed: 35,
+    slope: 28,
+    dryness: "Extreme",
+    population: 4200,
+  });
+  
+  const [interventions, setInterventions] = useState({
+    prepositionCrews: false,
+    protectLine: false,
+    backupSwitching: false,
+    trafficOfficers: false,
+    closePchEarly: false,
+  });
+
   useEffect(() => {
     fetch("/osm_map.json").then((r) => r.json()).then(setOsmData).catch(() => {});
   }, []);
@@ -337,6 +353,9 @@ export default function App() {
   }, []);
 
   const state = deriveIncidentState(minute);
+  const simulation = useMemo(() => {
+    return simulateScenario(scenario, interventions, minute);
+  }, [scenario, interventions, minute]);
   const fireGeoJSON = useMemo(() => {
     if (fireKeyframes.length < 2) return null;
     const sorted = [...fireKeyframes].sort((a, b) => a.minute - b.minute);
