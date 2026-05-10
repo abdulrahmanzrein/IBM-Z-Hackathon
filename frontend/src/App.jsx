@@ -1057,11 +1057,12 @@ export default function App() {
         ))}
       </aside>
 
-      <motion.section
+      <motion.aside
         className="consequence-panel"
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.22 }}
+        aria-label="Selected asset details"
       >
         <div className="sidebar-kicker">
           <span>{selectedAssetDepartment?.label || "Incident"}</span>
@@ -1096,7 +1097,39 @@ export default function App() {
             <span key={item}>{item}</span>
           ))}
         </div>
-      </motion.section>
+        <Tabs.Root className="sidebar-tabs" value={activeOpsTab} onValueChange={setActiveOpsTab}>
+          <Tabs.List className="ops-tab-list" aria-label="Responder operating details">
+            <Tabs.Trigger className="ops-tab-trigger" value="plan">Plan</Tabs.Trigger>
+            <Tabs.Trigger className="ops-tab-trigger" value="sync">Sync</Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.Content className="sidebar-tab-content" value="plan">
+            <span>Shared Plan</span>
+            <strong>{apiData?.agents?.coordinator?.incident_objective || "Keep PCH open. Stop the cascade before evacuation slows."}</strong>
+            {selectedAssignment && (
+              <p><b>{selectedAssignment.label}</b>{selectedAssignment.action}</p>
+            )}
+          </Tabs.Content>
+          <Tabs.Content className="sidebar-tab-content" value="sync">
+            <span>Agent Comms</span>
+            <div className="agent-comms" aria-label="Agent coordination messages">
+              {agentMessages.map((message) => (
+                <article className={`agent-message message-${message.severity}`} key={message.id}>
+                  <b>{message.time}</b>
+                  <div className="message-copy">
+                    <div className="message-route">
+                      <strong>{message.from}</strong>
+                      <span>to</span>
+                      <strong>{message.to}</strong>
+                    </div>
+                    <em>{message.action}</em>
+                    <p>{message.evidence}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </Tabs.Content>
+        </Tabs.Root>
+      </motion.aside>
 
       <motion.section
         className="coordination-layer"
@@ -1120,38 +1153,6 @@ export default function App() {
             </button>
           ))}
         </div>
-        <Tabs.Root className="ops-tabs" value={activeOpsTab} onValueChange={setActiveOpsTab}>
-          <Tabs.List className="ops-tab-list" aria-label="Responder operating details">
-            <Tabs.Trigger className="ops-tab-trigger" value="plan">Plan</Tabs.Trigger>
-            <Tabs.Trigger className="ops-tab-trigger" value="sync">Sync</Tabs.Trigger>
-          </Tabs.List>
-          <Tabs.Content className="ops-tab-content" value="plan">
-            <span>Shared Plan</span>
-            <strong>{apiData?.agents?.coordinator?.incident_objective || "Keep PCH open. Stop the cascade before evacuation slows."}</strong>
-            {selectedAssignment && (
-              <p><b>{selectedAssignment.label}</b>{selectedAssignment.action}</p>
-            )}
-          </Tabs.Content>
-          <Tabs.Content className="ops-tab-content" value="sync">
-            <span>Agent Comms</span>
-            <div className="agent-comms" aria-label="Agent coordination messages">
-              {agentMessages.map((message) => (
-                <article className={`agent-message message-${message.severity}`} key={message.id}>
-                  <b>{message.time}</b>
-                  <div className="message-copy">
-                    <div className="message-route">
-                      <strong>{message.from}</strong>
-                      <span>to</span>
-                      <strong>{message.to}</strong>
-                    </div>
-                    <em>{message.action}</em>
-                    <p>{message.evidence}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </Tabs.Content>
-        </Tabs.Root>
       </motion.section>
 
       <section className="cascade-strip">

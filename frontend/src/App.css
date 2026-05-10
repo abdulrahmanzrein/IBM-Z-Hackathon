@@ -27,7 +27,7 @@ body,
 #root {
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
 }
 
 body {
@@ -622,12 +622,14 @@ button {
 .consequence-panel {
   right: 16px;
   top: 158px;
-  bottom: 178px;
+  bottom: 16px;
   width: min(360px, calc(100vw - 112px));
   max-height: none;
-  overflow: auto;
+  overflow: hidden;
   border-radius: 8px;
   padding: 14px;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-kicker {
@@ -783,6 +785,51 @@ button {
   margin-top: 9px;
 }
 
+.sidebar-tabs {
+  min-height: 0;
+  margin-top: 12px;
+  border-top: 1px solid rgba(232, 211, 160, 0.14);
+  padding-top: 10px;
+  display: grid;
+  grid-template-rows: 30px minmax(0, 1fr);
+  gap: 8px;
+  flex: 1;
+}
+
+.sidebar-tab-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-tab-content > span {
+  display: block;
+  color: #fcd34d;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sidebar-tab-content > strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.32;
+}
+
+.sidebar-tab-content p {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.32;
+}
+
+.sidebar-tab-content p b {
+  color: #fcd34d;
+  margin-right: 6px;
+}
+
 .assignment-focus,
 .assignment-area {
   filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.58));
@@ -813,12 +860,12 @@ button {
   left: 88px;
   right: 392px;
   bottom: 90px;
-  height: 156px;
+  height: 116px;
   border-radius: 8px;
   padding: 8px;
   display: grid;
-  grid-template-columns: minmax(600px, 1fr) minmax(360px, 520px);
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 0;
   align-items: stretch;
 }
 
@@ -1019,7 +1066,7 @@ button {
   display: grid;
   gap: 6px;
   margin-top: 7px;
-  max-height: 82px;
+  max-height: 100%;
   overflow: auto;
   padding-right: 2px;
 }
@@ -1111,7 +1158,7 @@ button {
 
 .cascade-strip {
   left: 88px;
-  right: 88px;
+  right: 392px;
   bottom: 16px;
   min-height: 66px;
   border-radius: 8px;
@@ -1402,9 +1449,8 @@ button {
     left: 12px;
     right: 12px;
     bottom: 88px;
-    height: 324px;
+    height: 206px;
     grid-template-columns: 1fr;
-    grid-template-rows: 190px 1fr;
   }
 
   .department-strip {
@@ -1432,14 +1478,6 @@ button {
   .department-pill strong {
     font-size: 10px;
     -webkit-line-clamp: 2;
-  }
-
-  .ops-tabs {
-    min-height: 0;
-  }
-
-  .agent-comms {
-    max-height: 84px;
   }
 
   .shared-objective,
