@@ -7,7 +7,8 @@ from backend.services.llm_json import parse_json_object
 
 
 FEATHERLESS_CHAT_URL = "https://api.featherless.ai/v1/chat/completions"
-DEFAULT_FEATHERLESS_MODEL = "Qwen/Qwen2.5-7B-Instruct"
+DEFAULT_FEATHERLESS_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
+DEFAULT_FEATHERLESS_TIMEOUT_SECONDS = 45
 
 
 def _status(*, model: str, fallback_used: bool, reason: str = "") -> dict:
@@ -17,6 +18,13 @@ def _status(*, model: str, fallback_used: bool, reason: str = "") -> dict:
         "fallback_used": fallback_used,
         "reason": reason,
     }
+
+
+def _timeout_seconds() -> int:
+    try:
+        return int(os.getenv("FEATHERLESS_TIMEOUT_SECONDS", DEFAULT_FEATHERLESS_TIMEOUT_SECONDS))
+    except ValueError:
+        return DEFAULT_FEATHERLESS_TIMEOUT_SECONDS
 
 
 def run_featherless_json_agent(
@@ -61,6 +69,8 @@ def run_featherless_json_agent(
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "StormOS/1.0 (+https://github.com/abdulrahmanzrein/IBM-Z-Hackathon)",
             "HTTP-Referer": "https://github.com/abdulrahmanzrein/IBM-Z-Hackathon",
             "X-Title": "StormOS",
         },
@@ -69,7 +79,7 @@ def run_featherless_json_agent(
 
     open_fn = opener or urlopen
     try:
-        with open_fn(request, timeout=8) as response:
+        with open_fn(request, timeout=_timeout_seconds()) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
         content = response_payload["choices"][0]["message"]["content"]
         output = parse_json_object(content)

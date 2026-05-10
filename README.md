@@ -40,7 +40,8 @@ The backend runs with deterministic fallbacks by default. Set these only when us
 
 ```bash
 export FEATHERLESS_API_KEY=...
-export FEATHERLESS_MODEL=Qwen/Qwen2.5-7B-Instruct
+export FEATHERLESS_MODEL=Qwen/Qwen2.5-1.5B-Instruct
+export FEATHERLESS_TIMEOUT_SECONDS=45
 
 export WATSONX_API_KEY=...
 export WATSONX_PROJECT_ID=...

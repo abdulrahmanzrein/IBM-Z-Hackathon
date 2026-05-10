@@ -43,8 +43,13 @@ def test_featherless_missing_key_uses_fallback(monkeypatch):
 
 def test_featherless_success_parses_json(monkeypatch):
     monkeypatch.setenv("FEATHERLESS_API_KEY", "test-key")
+    monkeypatch.delenv("FEATHERLESS_TIMEOUT_SECONDS", raising=False)
+    captured = {}
 
     def fake_opener(request, timeout):
+        captured["user_agent"] = request.get_header("User-agent")
+        captured["accept"] = request.get_header("Accept")
+        captured["timeout"] = timeout
         return FakeResponse(
             {
                 "choices": [
@@ -67,6 +72,9 @@ def test_featherless_success_parses_json(monkeypatch):
 
     assert output["threat_level"] == "CRITICAL"
     assert status["fallback_used"] is False
+    assert captured["user_agent"].startswith("StormOS/1.0")
+    assert captured["accept"] == "application/json"
+    assert captured["timeout"] == 45
 
 
 def test_watsonx_missing_project_uses_fallback(monkeypatch):

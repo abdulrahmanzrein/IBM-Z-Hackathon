@@ -1,373 +1,792 @@
-# StormOS
-## Wildfire Cascade Incident Commander
-**IBM Z × UNSA Sheridan Hackathon 2026 — Product Requirements Document**
+# StormOS Canada
+## Live Wildfire Cascade Triage for Emergency Operations
+**IBM Z x UNSA Sheridan Hackathon 2026 - Product Requirements Document**
 
 ---
 
 | Field | Detail |
 |-------|--------|
-| Hackathon | IBM Z × UNSA Sheridan 2026 (Virtual, May 8–11) |
-| Disaster scope | Wildfire only. One scenario, executed completely. |
-| Location | Pacific Palisades & Malibu, Los Angeles, CA (2025 Palisades Fire) |
-| Core innovation | Forward prediction of wildfire infrastructure cascades, with physics validation blocking AI recommendations unless they match deterministic fire, grid, traffic, and debris-flow ground truth. |
-| Cascade chain | Fire burns power line → substation fails → traffic signals go dark → PCH blocks → residents cannot evacuate |
-| Agencies coordinated | Fire Incident Command + Utility Operator + Traffic Management |
-| Real data | 2025 Palisades Fire GeoJSON (NIFC) + OSM infrastructure + Open-Meteo weather |
-| Required AI stack | Featherless open-weight models for specialist agents + IBM watsonx.ai Granite for coordinator |
-| Team split | P1: Frontend + Map · P2: Backend + Physics + Agent Pipeline · P3: Scenario Data + Integration + Demo |
-| Build window | 36 hours |
-| SDGs | SDG 11.5 (reduce disaster deaths), SDG 13.1 (climate resilience), SDG 9.1 (resilient infrastructure) |
-| Judging weights | Innovation 25% · Technical 25% · Impact/SDG 25% · Usability 15% · Presentation 10% |
+| Hackathon | IBM Z x UNSA Sheridan 2026 |
+| Disaster scope | Wildfire only, expanded from one fixed scenario to live Canadian wildfire incidents |
+| Product thesis | Rank active wildfires by which one is most likely to trigger the next infrastructure or evacuation failure |
+| Primary user | Provincial wildfire operations, municipal EOCs, dispatch supervisors, fire incident command, utility operators, traffic/transportation coordinators, evacuation planners |
+| Core innovation | Live data -> physics forecast -> infrastructure cascade graph -> AI specialist agents -> deterministic validator -> coordinated responder tasks |
+| Real data | Esri Canada / CWFIS active fires, ECCC weather, NRCan elevation/slope, CWFIS fire danger, OSM/critical infrastructure |
+| Required AI stack | Featherless open-weight specialist agents + IBM watsonx.ai Granite coordinator |
+| Team split | P1: responder-first frontend and map. P2: backend, physics, agents, validator. P3: live data adapters and scenario integration |
+| SDGs | SDG 11.5 disaster deaths, SDG 13.1 climate resilience, SDG 9.1 resilient infrastructure |
 
 ---
 
-## 1. What StormOS Is
+## 1. One-Sentence Pitch
 
-> **StormOS is a multi-agent AI system that predicts when a wildfire will trigger an infrastructure cascade, validates every AI recommendation against deterministic physics, and delivers coordinated tactical instructions to three agency commanders before the cascade blocks evacuation.**
+> **StormOS Canada is a live wildfire coordination system that scans active Canadian fires, predicts which one may break critical infrastructure next, validates AI recommendations against real weather and terrain physics, and gives every responding department the same action plan before evacuation routes fail.**
 
-StormOS is best understood as a **cascade intelligence layer for wildfire Emergency Operations Centers (EOCs)**. It is not a fire detection tool, an evacuation alert platform, a public wildfire app, or a replacement for incident commanders. Existing tools — Pano AI, Watch Duty, Genasys, Technosylva — cover parts of those jobs.
+StormOS is not another fire map. Fire maps answer:
 
-StormOS answers the question none of them answer:
+```text
+Where is the fire?
+```
 
-> At the current wind, slope, and fire perimeter, which power line fails next, what fails downstream, how long until evacuation access collapses, and what do three agency commanders need to do before that window closes?
+StormOS answers:
 
-The product wedge is narrow on purpose:
+```text
+Which active fire is about to break something people need to survive?
+Who owns the next action?
+How long do they have?
+Why should they trust the recommendation?
+```
 
-> **Genasys helps communicate who should evacuate. Technosylva helps predict fire behavior. StormOS predicts when the fire breaks the infrastructure people need to evacuate — then synchronizes Fire, Utility, and Traffic from one physics-validated incident graph.**
-
-### The Documented Gap
-
-| Source | Finding |
-|--------|---------|
-| McChrystal Group after-action report (Sept 2025) | January 2025 Palisades Fire response hampered by outdated policies, inconsistent practices, and communications vulnerabilities across agencies. |
-| Malibu after-action report | Genasys Protect — the most widely deployed wildfire tool — created confusion because zone changes were not coordinated across agencies. |
-| AECOM engineering report (Feb 2026) | Pacific Palisades still out of evacuation compliance. $664M proposed to underground power lines because 57% of electric service points were destroyed by the cascade. |
-
-### What StormOS Does Not Claim
-
-| Not Claiming | Why |
-|--------------|-----|
-| Not replacing Genasys, Watch Duty, Technosylva, Pano AI, or dispatchers | StormOS should plug into the EOC workflow as a decision-support layer, not compete as a full emergency-management suite. |
-| Not a certified operational fire-spread model | The demo uses PRD-calibrated deterministic physics inspired by published models. It proves the validation pattern and cascade workflow. |
-| Not a public evacuation alert system | StormOS produces agency recommendations; official public warnings still come from authorized emergency managers. |
-| Not fully live Palisades 2025 recreation | The demo uses historical fire geometry, public infrastructure data, and live/current weather where available. |
+The government-grade version is a **national wildfire cascade triage layer**. It ingests live active fires, enriches each fire with weather, slope, fuel/fire danger, roads, power, communities, and critical services, then ranks incidents by operational urgency.
 
 ---
 
-## 2. The Cascade — This Is the Product
+## 2. Problem
 
-StormOS focuses on the failure chain that makes a wildfire become a multi-agency infrastructure emergency. The fire burns power lines. Power lines kill substations. Substations kill traffic signals. Traffic signals block PCH. People cannot get out. That chain can unfold in minutes and crosses separate agency systems with no guaranteed shared picture of what is about to happen.
+Wildfire response fails when each department sees a different part of the emergency.
 
-That chain is deterministic, predictable, and modelable with published physics. StormOS models it forward in time, identifies the next likely infrastructure failure, calculates the unmitigated downstream cascade, and coordinates agency action before the chain completes.
+Fire command sees flame spread. Utilities see grid risk. Traffic sees evacuation congestion. Emergency managers see exposed communities. These systems often update separately, and by the time every group agrees on the situation, the next failure may already be happening.
 
-| Step | Prediction / Event | Physics Engine | Agency Triggered |
-|------|--------------------|---------------|-----------------|
-| 1 | Fire projected to cross Transmission Line A within the action window | Rothermel spread + GeoJSON polygon intersection | Fire IC: protect line before contact |
-| 2 | If Line A fails, Malibu Substation will lose upstream power | Deterministic graph propagation | Utility: begin emergency switching on Substation B before outage |
-| 3 | If substation fails, PCH traffic signals will go dark | Deterministic graph propagation | Traffic: deploy manual officers before signal loss |
-| 4 | If signals fail, PCH evacuation route becomes BLOCKED for 4,200 residents | Cascade completion event | All three agencies: P1 CRITICAL. 12-minute intervention window. |
-| 5 | Debris flow risk becomes HIGH on burned slopes above Malibu | USGS M1: slope=34°, burn=78%, rain=0.75in/hr → P=0.71 | Fire IC + Utility: pre-position for secondary hazard |
+The hard problem is not only predicting fire behavior. It is predicting the **chain reaction**:
 
-### Prediction Output
+```text
+Fire spreads
+  -> power line, substation, highway, bridge, community, hospital, or shelter is threatened
+    -> evacuation capacity drops
+      -> response time shrinks
+        -> multiple departments need synchronized action
+```
 
-StormOS should expose the forward prediction explicitly in the API and UI:
+StormOS exists to surface that chain before it completes.
+
+---
+
+## 3. What Changed From The Original Palisades PRD
+
+| Old Scope | New Scope |
+|-----------|-----------|
+| One Palisades/PCH demo scenario | Live Canadian active wildfire incidents |
+| Historical GeoJSON + curated assets | Public live feeds plus real enrichment APIs |
+| One cascade chain | Dynamic cascade graph per selected fire |
+| Demo asks "what happens to PCH?" | Product asks "which active fire needs coordinated action first?" |
+| Static map focus | Ranked national incident inbox plus deep-dive command map |
+| Hardcoded intervention timeline | 1h, 2h, and 3h forecast based on live wind, terrain, and nearby assets |
+
+The Palisades scenario remains useful as a backup demo and explanatory story, but the primary product scope is now live Canadian wildfire triage.
+
+---
+
+## 4. Live Data Sources
+
+StormOS must run on real public data wherever possible. Every derived recommendation must preserve source metadata so the UI can show why the system believes it.
+
+| Source | Provides | MVP Use |
+|--------|----------|---------|
+| Esri Canada Active Wildfires in Canada | Active fire points with agency, fire name, latitude, longitude, start date, hectares, stage of control, response type | National live fire inbox and fire selection |
+| NRCan / CWFIS | Canadian Wildland Fire Information System fire activity, fire danger, Fire Weather Index, Fire M3/hotspot products | Fire danger context and source credibility |
+| ECCC MSC GeoMet | Weather observations and forecasts, wind speed, wind direction, gusts, precipitation, temperature, humidity | Live weather inputs for spread direction and risk |
+| NRCan Elevation API / CDEM | Elevation data for terrain | Slope and aspect around selected fire |
+| OpenStreetMap / Overpass | Roads, highways, power lines, substations, hospitals, shelters, schools, waterways | Nearby asset and evacuation-route detection |
+| Statistics Canada / open population layers | Population and community exposure | Exposure scoring and resident impact labels |
+| Featherless AI | Specialist reasoning for hazard, cascade, and secondary hazard agents | Domain-specific structured JSON outputs |
+| IBM watsonx.ai Granite | Final cross-agency coordinator | Responder-facing common operating plan |
+
+Known active fire fields from Esri Canada layer:
+
+```text
+Agency
+Fire_Name
+Latitude
+Longitude
+Start_Date
+Hectares__Ha_
+Stage_of_Control
+Time_Zone
+response_type
+ObjectId
+```
+
+Example stage values should be normalized:
+
+| Raw Value | Meaning | StormOS Meaning |
+|-----------|---------|-----------------|
+| UC | Uncontrolled | High urgency |
+| BH | Being held | Monitor / moderate urgency |
+| OC | Out of control, if present in source variants | High urgency |
+| EX / OUT | Extinguished / out | Hide or deprioritize |
+
+### Source Links
+
+| Source | URL |
+|--------|-----|
+| Esri Canada wildfire hub | `https://climate.esri.ca/pages/wildfire` |
+| Esri Canada active wildfire FeatureServer | `https://services.arcgis.com/wjcPoefzjpzCgffS/arcgis/rest/services/activefires/FeatureServer` |
+| NRCan / CWFIS current wildland fire activity | `https://natural-resources.canada.ca/forests-forestry/wildland-fires/current-wildland-fire-activity-cwfis` |
+| ECCC MSC GeoMet API | `https://api.weather.gc.ca/` |
+| NRCan Elevation API | `https://natural-resources.canada.ca/science-data/data-analysis/geospatial-data-tools-services/elevation-api` |
+| OpenStreetMap Overpass API | `https://overpass-api.de/api/interpreter` |
+
+### Unit Normalization
+
+Canadian source data is usually metric. StormOS normalizes every live input before physics or agents run.
+
+| Input | Source Unit | Internal Unit | UI Display |
+|-------|-------------|---------------|------------|
+| Wind speed | km/h or m/s | mph and m/s | km/h plus mph in evidence panel |
+| Gust speed | km/h or m/s | mph and m/s | km/h |
+| Rainfall | mm/hr | in/hr and mm/hr | mm/hr |
+| Fire size | hectares | hectares | hectares |
+| Distance | metres | metres | km / m |
+| Slope | degrees or derived from elevation | degrees | degrees |
+
+The validator checks normalized internal values. The UI shows source units and freshness so responders can audit the recommendation.
+
+---
+
+## 5. Core User Workflow
+
+### Step 1: Live Fire Inbox
+
+The first screen ranks active Canadian fires by cascade risk.
+
+```text
+1. 2025_AB_SWF-085 - Cascade Risk 94 - Uncontrolled - 138,581 ha
+2. 2025_AB_SWF-092 - Cascade Risk 88 - Uncontrolled - 88,302 ha
+3. 2025_AB_PWF-044 - Evacuation Risk 81 - Uncontrolled - 52,289 ha
+```
+
+Each row must show:
+
+```text
+Fire name
+Province/agency
+Stage of control
+Size
+Nearest exposed asset
+Next predicted failure
+ETA
+Confidence
+Data freshness
+```
+
+### Step 2: Select Fire
+
+Clicking a fire opens the command map centered on the live incident. StormOS loads:
+
+```text
+Active fire point or perimeter
+Current and forecast wind
+Slope and aspect
+Fire danger/fuel context
+Nearby roads, power assets, communities, hospitals, shelters
+Evacuation corridors
+```
+
+### Step 3: Run Dispatch
+
+StormOS runs the full prediction and agent pipeline:
+
+```text
+Live data intake
+  -> physics forecast
+    -> exposure/cascade graph
+      -> Featherless specialist agents
+        -> deterministic validator
+          -> IBM watsonx coordinator
+            -> responder tasks + map overlays
+```
+
+### Step 4: Responder Action
+
+The UI answers four questions immediately:
+
+```text
+What will fail next?
+When?
+Who owns it?
+What should they do now?
+```
+
+---
+
+## 6. Prediction Pipeline
+
+### 6.1 Fire Spread Approximation
+
+MVP uses a transparent Rothermel-inspired approximation:
+
+```text
+spread_rate_fpm = fuel_base_rate_fpm * (1 + slope_deg / 20) * (1 + wind_mph / 15)
+```
+
+This is not a certified operational fire simulator. It is an explainable short-horizon hazard model used to validate AI output and demonstrate the architecture. Later versions can swap in Canadian FBP/FWI-based models or agency fire-spread services.
+
+Inputs:
+
+```text
+fuel_base_rate_fpm
+slope_deg
+wind_mph
+wind_direction_deg
+aspect_deg
+stage_of_control
+fire_size_hectares
+fire_danger
+```
+
+Outputs:
+
+```text
+spread_rate_fpm
+dominant_spread_direction
+1h / 2h / 3h spread cone
+threat_level
+confidence
+```
+
+### 6.2 Time-To-Impact
+
+For each nearby asset:
+
+```text
+distance_to_asset_m
+spread_rate_m_per_min
+alignment_factor = wind/slope direction alignment with asset bearing
+time_to_impact_min = distance_to_asset_m / adjusted_spread_rate_m_per_min
+```
+
+The MVP can use simple geometry:
+
+```text
+If asset intersects spread cone within 3 hours:
+  mark asset AT_RISK
+  calculate ETA
+```
+
+### 6.3 Cascade Graph
+
+StormOS builds a dependency graph around each selected incident:
+
+```text
+Fire
+  -> road / highway / bridge
+  -> power line / substation
+  -> traffic control / evacuation corridor
+  -> community / hospital / shelter
+  -> response staging area
+```
+
+Graph rules:
+
+```text
+If road segment is threatened, evacuation route becomes DEGRADED.
+If road segment is blocked, downstream communities lose primary exit.
+If power asset is threatened, dependent traffic/shelter/utility assets become AT_RISK.
+If active fire threatens a hospital/shelter/community within ETA window, evacuation branch receives P1 task.
+```
+
+### 6.4 Cascade Risk Score
+
+Each active fire receives a 0-100 score:
+
+```text
+cascade_risk =
+  fire_control_weight
+  + fire_size_weight
+  + wind_speed_weight
+  + wind_alignment_weight
+  + slope_weight
+  + fire_danger_weight
+  + exposed_population_weight
+  + critical_asset_weight
+  + time_to_impact_weight
+```
+
+MVP scoring:
+
+| Factor | Example Weight |
+|--------|----------------|
+| Uncontrolled fire | +20 |
+| Size above 10,000 ha | +10 |
+| Wind above 25 mph | +15 |
+| Wind aligned with asset | +15 |
+| Slope above 20 deg | +10 |
+| Primary road within 3h cone | +15 |
+| Power/substation within 3h cone | +10 |
+| Community/hospital/shelter exposed | +15 |
+| ETA under 90 minutes | +20 |
+
+Clamp final score to 100.
+
+---
+
+## 7. Agent Architecture
+
+StormOS agents are not allowed to invent facts. They reason over a shared incident context produced by deterministic data and physics services.
+
+| Agent | Provider | Input | Output | Validation |
+|-------|----------|-------|--------|------------|
+| Weather Agent | Deterministic service + optional Featherless summary | ECCC wind, gust, precipitation, humidity | Weather risk summary and confidence | Must match numeric weather values |
+| Terrain Agent | Deterministic service | NRCan elevation, slope, aspect | Slope/aspect risk summary | Must match calculated slope/aspect |
+| Hazard Agent | Featherless | Fire, weather, slope, fire danger | Spread concern, threat label, likely direction | Must match physics threat and spread cone |
+| Cascade Agent | Featherless | Nearby assets and dependency graph | Next infrastructure failure and downstream chain | Must match deterministic graph |
+| Secondary Agent | Featherless | Burn area, slope, rain | Debris/smoke/secondary hazard note | Must match threshold rules |
+| Physics Validator | Deterministic Python | All agent outputs and ground truth | Pass/fail, violation, retry instruction | No LLM |
+| Coordinator | IBM watsonx.ai Granite | Validated specialist outputs | One common operating plan and station tasks | Must cite validated inputs |
+
+### Required Provider Use
+
+| Provider | Required Role |
+|----------|---------------|
+| Featherless AI | Specialist agents: Hazard, Cascade, Secondary. Current working model: `Qwen/Qwen2.5-1.5B-Instruct` |
+| IBM watsonx.ai Granite | Final Coordinator. Requires valid IBM project access. Deterministic fallback allowed only if permissions fail during demo |
+| Deterministic Python | Physics, validator, fallback outputs, data-source normalization |
+
+The UI must show provider status:
+
+```text
+Featherless: live / fallback
+watsonx: live / fallback
+Weather: live / fallback
+Terrain: live / fallback
+```
+
+No hidden fake data. If a source falls back, label it.
+
+---
+
+## 8. Responder-First UI Requirements
+
+The UI must feel like a tool a responder could open tomorrow.
+
+### Layout
+
+```text
+80% map
+10% live fire ranked list
+10% selected incident command panel
+```
+
+No landing page. No marketing hero. No cluttered card wall.
+
+### Map Layers
+
+| Layer | Required Behavior |
+|-------|-------------------|
+| Active fires | Live points from Canada active fire feed, sized by hectares, colored by stage of control |
+| Selected fire | Strong outline, current status, data freshness |
+| Wind | Direction arrow and wind-speed badge; optional streamlines later |
+| Spread cone | 1h, 2h, 3h projected cone based on wind/slope |
+| Terrain | Hillshade/topographic base plus slope risk overlay near selected fire |
+| Roads/evacuation | Primary routes highlighted, route status CLEAR/DEGRADED/BLOCKED |
+| Power/infrastructure | Power lines, substations, hospitals, shelters, communities when nearby |
+| Impact labels | Only show ETA, owner, and action. Avoid clutter |
+
+### Right Command Panel
+
+Must show only:
+
+```text
+NEXT FAILURE
+ETA
+OWNER
+DO THIS NOW
+WHY WE TRUST IT
+```
+
+Example:
+
+```text
+NEXT FAILURE
+Highway 35 evacuation corridor
+
+ETA
+74 minutes
+
+OWNER
+Traffic + Evacuation
+
+DO THIS NOW
+Stage officers at north and south control points.
+
+WHY WE TRUST IT
+Uncontrolled fire. Wind 31 mph from WSW. Slope 26 deg. Route intersects 2h cone.
+```
+
+### Agent Comms
+
+Agents must appear as a readable operational conversation:
+
+```text
+Weather -> Physics: Wind 31 mph WSW verified.
+Terrain -> Physics: East slope 26 deg, aligned with spread.
+Physics -> Validator: Highway 35 intersects 2h cone.
+Validator -> Cascade Agent: Output accepted.
+Coordinator -> Traffic: Stage officers before corridor degrades.
+Coordinator -> Evacuation: Send early warning to exposed community.
+```
+
+### Accessibility
+
+| Requirement | Why |
+|-------------|-----|
+| Large readable text | Dispatch environments are stressful |
+| Color plus text status | Do not rely on color alone |
+| Minimal panels | Map must remain primary |
+| High contrast | Outdoor / emergency display readability |
+| Keyboard-accessible controls | Operational accessibility |
+| No clipped words | Every instruction must be complete |
+
+---
+
+## 9. Backend API Contract
+
+### `GET /fires/canada/live`
+
+Returns ranked active fires.
 
 ```json
 {
-  "prediction_window_min": 12,
-  "next_failure": "transmission_line_A",
-  "cascade_if_unmitigated": [
-    "substation_malibu FAILED",
-    "signal_PCH_1 FAILED",
-    "signal_PCH_2 FAILED",
-    "road_PCH BLOCKED"
-  ],
-  "preventive_actions": {
-    "fire_incident_command": "Protect Transmission Line A now.",
-    "utility_operator": "Switch load to Substation B.",
-    "traffic_management": "Deploy officers to PCH signals."
-  }
-}
-```
-
-### Frontend Cascade State Timeline
-
-This table is the UI contract for the map. P1 should be able to build the cascade animation directly from it.
-
-| Object | T+0: Predicted / Pre-Failure | T+15: Cascade Starts | T+30: Secondary Hazard |
-|--------|------------------------------|----------------------|------------------------|
-| Fire perimeter | Ignition/initial polygon visible in hills above PCH | Expanded polygon intersects Transmission Line A | Expanded perimeter remains visible |
-| Prediction window | `Line A failure in 12 min if unmitigated` | `Cascade in progress` | `Secondary debris hazard active` |
-| Transmission Line A | `AT_RISK`, amber, highlighted as next failure | `FAILED`, red dashed line | `FAILED`, red dashed line |
-| Malibu Substation | `OPERATIONAL`, green circle | `FAILED`, red pulsing circle | `FAILED`, red circle |
-| PCH Signal 1 | `OPERATIONAL`, green square | `FAILED`, red square | `FAILED`, red square |
-| PCH Signal 2 | `OPERATIONAL`, green square | `FAILED`, red square | `FAILED`, red square |
-| PCH evacuation route | `CLEAR`, green route | `BLOCKED`, red dashed route | `BLOCKED`, red dashed route |
-| Residents affected | `4,200 exposed if PCH blocks` warning label | `4,200 residents with no clear exit` | Exposure label remains visible |
-| Debris-flow zone | Hidden | Hidden or low-opacity forecast | Visible translucent HIGH-risk polygon |
-| Agency panels | Preventive actions, priority `P2` | Emergency actions, priority `P1` | P1 updates include debris-flow hazard |
-
-### Causal Dependency Graph
-
-The map should visually communicate this dependency chain, not just color independent objects:
-
-```txt
-Fire perimeter projected path
-  -> Transmission Line A
-    -> Malibu Substation
-      -> PCH Signal 1
-      -> PCH Signal 2
-        -> PCH evacuation route
-          -> 4,200 residents exposed
-```
-
-If only one visual animation is polished, polish this sequence: fire approaches line, line flashes, pulse moves to substation, pulse moves to signals, PCH turns blocked, resident exposure label appears.
-
-### Why the Cascade Visualization Is the Demo
-
-Click Dispatch. The fire perimeter polygon appears on the map. At T+0, StormOS predicts the fire will hit Transmission Line A inside the intervention window and shows the unmitigated cascade before it happens. At T+15 it crosses Transmission Line A — the line turns red. A pulse animation runs to Malibu Substation — it turns red. Another pulse runs to the PCH traffic signals — they turn red. PCH turns red. The product moment is that Fire, Utility, and Traffic were warned before this visible failure chain completed.
-
----
-
-## 3. The Physics Validator — The Core Innovation
-
-Every AI disaster tool has the same problem: agents hallucinate. They output LOW risk when the math says CRITICAL. The physics validator applies one rule: no AI output reaches an operator until it has been checked against deterministic ground truth. Fail the check — get rejected with the exact violation message, forced to replan. Maximum two retries. This sequence is visible live in the validator feed panel.
-
-| Physics Engine | Rule |
-|---------------|------|
-| Rothermel Fire Spread (USFS, 1972) | `spread_rate = base_rate(fuel) × (1 + slope/20) × (1 + wind/15)` — If slope > 20° and wind > 25mph: threat MUST be CRITICAL. Any lower output is rejected immediately. |
-| Infrastructure Cascade (Deterministic Graph) | If node A is FAILED, every downstream node in the dependency graph is FAILED. No probability. No AI. Fire crosses Line A → Malibu Substation is FAILED. No agent can argue otherwise. |
-| USGS M1 Debris Flow (Cannon et al. 2010) | `P = f(slope, burn_severity, rainfall_intensity)` — At slope=34°, burn=78%, rain=0.75in/hr: P=0.71 = HIGH. Any MODERATE or LOW output on these inputs is rejected. |
-
-### What Judges See During the Demo
-
-```
-[RED]   AGENT REJECTED — debris_flow_agent output: LOW.
-        Physics violation: USGS M1 calculates P=0.71 (HIGH) at slope=34°,
-        burn_severity=78%, rainfall=0.75in/hr. You MUST escalate to HIGH. Retry 1/2.
-
-[GREEN] AGENT VALIDATED — debris_flow_agent replanned: HIGH.
-        Onset window 4–6 hours post-rainfall. Approved.
-```
-
----
-
-## 4. The Map
-
-2D map. Dark base tiles. Pacific Palisades, Malibu, and PCH all visible. Looks like a professional emergency operations display.
-
-| Layer | What It Shows |
-|-------|--------------|
-| Fire perimeter | Real 2025 Palisades Fire GeoJSON polygon from NIFC. Irregular shape following canyon terrain. Grows across T+0, T+15, T+30 driven by Rothermel physics. |
-| Prediction window | Countdown showing minutes until next projected infrastructure failure if no mitigation occurs. |
-| Power lines | OSM polylines. Green → amber when fire within 500m → red dashed when FAILED. |
-| Substations | Circle markers at correct coordinates. Green → red when failed. Pulse animation on status change. |
-| Traffic signals | Square markers at PCH intersections. Green → red when substation fails. |
-| Evacuation roads | PCH as thick polyline. Green (CLEAR) → amber (DEGRADED) → red dashed (BLOCKED). |
-| Cascade animation | Pulsing line runs from each failed node to downstream dependents before they turn red. Failure propagates visually in real time. |
-| Debris flow zone | Translucent polygon on burned hillside above Malibu. Appears when USGS M1 probability exceeds 0.5. |
-| Time slider | T+0 (ignition), T+15 (Line A fails), T+30 (PCH blocked). Dragging replays the cascade. All layers update. |
-
----
-
-## 5. Agent Architecture
-
-**Full pipeline:** Operator clicks Dispatch → Physics engines run (deterministic, <1 second) → Cascade graph computed → Featherless specialist agents run in parallel → Validator checks each output against physics ground truth → Violations force replan (max 2 retries) → All specialist outputs validated → IBM watsonx.ai Granite Coordinator synthesizes → Events stream to frontend in real time → Map updates + Validator feed populates + Three agency panels appear.
-
-| Agent | Model Provider | Physics Domain | Output | Notes |
-|-------|----------------|---------------|--------|-------|
-| Hazard Agent | Featherless open-weight LLM | Rothermel fire spread | Threat level, spread rate (ft/min), direction, structures at risk in 30min | Structured JSON output schema. Deterministic fallback if API unavailable. |
-| Cascade Agent | Featherless open-weight LLM | Deterministic graph propagation | Status of every node (OPERATIONAL/FAILED/AT_RISK), evacuation route passability, cascade timeline | Structured JSON output schema. Must not override graph truth. |
-| Secondary Agent | Featherless open-weight LLM | USGS M1 debris flow | Debris flow probability, threat label (HIGH/MODERATE/LOW), onset window, affected slope zones | Deliberately outputs LOW on first demo attempt so validator rejects, then replans HIGH. |
-| Coordinator | IBM watsonx.ai Granite | None — synthesis layer | One recommendation per agency (≤15 words), three notifications per agency (≤10 words), priority tier P1/P2/P3 | Final cross-agency synthesis layer. Deterministic fallback if watsonx unavailable. |
-| Physics Validator | No LLM | All three domains simultaneously | Pass/fail per agent, exact violation message with numbers, replan instruction, retry counter | Pure deterministic Python logic. No AI output reaches operators until validated. |
-
-### Required AI Provider Strategy
-
-StormOS must visibly use both required track technologies without weakening the safety story:
-
-| Provider | Used For | Why |
-|----------|----------|-----|
-| Featherless AI | Hazard, Cascade, and Secondary specialist agents | Gives StormOS open-weight, serverless specialist reasoning for each technical domain. |
-| IBM watsonx.ai Granite | Coordinator agent | Produces the final cross-agency command recommendations and aligns with the IBM Z hackathon track. |
-| Deterministic Python | Physics engines and validator | Establishes ground truth. This layer never calls an LLM. |
-
-Fallback rule: if Featherless or watsonx is unavailable during the demo, deterministic fallback agents return the same structured schema and the UI labels the fallback status in `data_sources.ai_stack`. The validator remains active either way.
-
----
-
-## 6. Competitive Landscape
-
-| Competitor | What They Do / What They Miss |
-|------------|------------------------------|
-| Genasys Protect | Evacuation zones, public alerts, emergency communications, and coordination workflows. Strong product; StormOS should complement it by predicting infrastructure cascades that change what agencies must do before alerts go out. |
-| Technosylva | Wildfire behavior prediction, asset risk scoring, fire simulations, utility wildfire operations. Strong science platform; StormOS is narrower: fire-caused downstream dependencies from power to traffic to evacuation passability. |
-| Pano AI / OroraTech | Early fire detection using cameras, satellites, and verification workflows. StormOS starts after detection: what does this fire do to infrastructure dependencies? |
-| Watch Duty | Public wildfire information and alerts, human-vetted updates, fire maps, wind, evacuation info. StormOS is not public-facing; it is commander-facing cascade decision support. |
-| DOE/Sandia Grid Monitor | De-energizes grid sections to prevent power lines from starting fires — solves the inverse problem. StormOS solves the cascade from fire damaging existing power infrastructure. |
-
-> **The exact gap:** Existing tools answer where the fire is, how it may spread, who may need to evacuate, or how to communicate alerts. StormOS answers: what does this fire do to the power grid, what does that do to evacuation routes, and what do Fire, Utility, and Traffic need to do from one shared validated cascade timeline?
-
----
-
-## 7. Data Sources
-
-| Source | What It Provides |
-|--------|-----------------|
-| NIFC Active Fire GeoJSON | Live fire perimeters updated every 20 minutes. Free REST API, no auth. Demo uses 2025 Palisades Fire historical perimeters as T+0, T+15, T+30 JSON files. |
-| OpenStreetMap Overpass API | Power lines, substations, roads, traffic signal locations for Pacific Palisades and Malibu. Free, no account required. |
-| Open-Meteo | Real-time wind speed, direction, temperature, precipitation at 1km resolution. Free, no auth. Used for Rothermel and USGS M1 inputs. |
-| Featherless AI | Serverless open-weight LLM inference for Hazard, Cascade, and Secondary specialist agents. |
-| IBM watsonx.ai Granite | Foundation model used for final cross-agency Coordinator synthesis. |
-| NASA SRTM | Terrain elevation at 30m resolution globally. Free download. Used for slope calculations in Rothermel and USGS M1. |
-| Rothermel (USFS, 1972) | Published fire spread formula. Implemented directly in code. Five lines of math. No external dependency. |
-| USGS M1 (Cannon et al. 2010) | Published debris flow probability formula. Implemented directly in code. Four lines of math. No external dependency. |
-
----
-
-## 8. Team Split
-
-**Design rule:** P2 defines the output contract at hour 2 and shares it immediately. P1 builds the entire frontend against hardcoded mock JSON from hour zero — never waiting. P3 prepares scenario data independently against the same contract. No blocking dependencies after hour 2.
-
-### Output Contract (defined at hour 2, shared immediately)
-
-```json
-{
-  "disaster_type": "wildfire",
-  "timestep": 0,
-  "physics": {
-    "threat_level": "CRITICAL|HIGH|ELEVATED|MODERATE",
-    "spread_rate_fpm": 0,
-    "debris_probability": 0.0
-  },
-  "prediction": {
-    "prediction_window_min": 12,
-    "next_failure": "<node_id>",
-    "cascade_if_unmitigated": ["<node_id> FAILED"],
-    "preventive_actions": {
-      "fire_incident_command": "<action>",
-      "utility_operator": "<action>",
-      "traffic_management": "<action>"
-    }
-  },
-  "cascade_status": { "<node_id>": "OPERATIONAL|FAILED|AT_RISK" },
-  "evacuation_routes": { "<route_id>": "CLEAR|DEGRADED|BLOCKED" },
-  "agents": { "hazard": {}, "cascade": {}, "secondary": {}, "coordinator": {} },
-  "data_sources": {
-    "ai_stack": {
-      "hazard_agent": "Featherless",
-      "cascade_agent": "Featherless",
-      "secondary_agent": "Featherless",
-      "coordinator": "IBM watsonx.ai Granite",
-      "validator": "Deterministic Python"
-    }
-  },
-  "events": [
+  "source": "Esri Canada Active Wildfires",
+  "fetched_at": "2026-05-10T00:00:00Z",
+  "fires": [
     {
-      "type": "physics_computed|agent_rejected|agent_validated|coordinator_done",
-      "agent": "<name>",
-      "violation": "<msg>",
-      "output": {}
+      "id": "2025_AB_SWF-085-2025",
+      "agency": "AB",
+      "name": "2025_AB_SWF-085-2025",
+      "latitude": 56.789,
+      "longitude": -113.8376,
+      "hectares": 138581,
+      "stage_of_control": "UC",
+      "response_type": "FUL",
+      "cascade_risk": 94,
+      "next_failure": "Highway evacuation corridor",
+      "eta_min": 74,
+      "confidence": 0.82
     }
   ]
 }
 ```
 
-### Responsibilities
+### `POST /dispatch/wildfire/{fire_id}`
 
-| Person | Owns | Hours 0–18 | Hours 18–36 |
-|--------|------|-----------|------------|
-| P1 — Frontend | Everything the user sees. No backend. No agents. | Set up frontend. Create mock_response.json. Build full operator dashboard: disaster selector, time slider, dispatch button. Build map: Palisades GeoJSON fire perimeter, power line cascade layer, substation markers, PCH road status, debris flow zone, cascade pulse animations. Build validator feed panel. Build three agency panels. | Connect to real backend when P2 has /dispatch/wildfire/1 running. Fix display bugs. Record 2–3 min demo video. Write Devpost submission, README, architecture diagram, 5-slide deck. Own all submission deliverables. |
-| P2 — Backend + Physics + Agent Pipeline | Shared backend execution pipeline, physics, validator, API contract, AI provider wrappers. Most critical role. | Scaffold backend. Define output contract at hour 2, share immediately. Build physics module: Rothermel spread rate + threat level, deterministic cascade graph propagation, USGS M1 debris flow. Test each engine with assertions before touching agents. Build validator: three check functions, retry loop max 2, violation message format. Build Featherless specialist agent wrappers and IBM watsonx Granite coordinator wrapper with deterministic fallbacks. Wire backend orchestrator pipeline. Test POST /dispatch/wildfire/1 returns valid contract JSON. | Add real-time event streaming. Add scenario-file loader and geometry hooks when P3 hands off data. Deploy backend. Help P3 debug integration. End-to-end test with P1 frontend. Fix critical bugs only. No new features. |
-| P3 — Scenario Data + Integration + Demo | Scenario pack, real data prep, integration checks, and demo engineering. Owns the validator rejection moment. | Download and prepare all GeoJSON: Palisades fire perimeter T+0, T+15, T+30 from NIFC. Query OSM for power lines, substations, traffic signals, roads in Pacific Palisades + Malibu. Build `infrastructure.json`, `dependency_graph.json`, and `metadata.json` for `palisades_2025`. Verify the scenario pack independently against P2's contract. | Hand scenario pack to P2 for backend loading. Full integration test. Deliberately tune debris flow agent prompt/config so it outputs LOW initially — validator must reject for demo. Rehearse demo script. Stretch goal: SMS notification on dispatch. |
+Runs the full StormOS pipeline for one live fire.
 
-> **P3 demo engineering note:** The physics validator must visibly reject at least one agent output during the demo. P3 deliberately tunes the debris flow agent system prompt so that without the violation message, the agent outputs LOW on the demo scenario (slope=34°, burn=78%, rain=0.75in/hr). The validator catches it, forces a replan, the agent corrects to HIGH. Test this at hour 20. This is the most important moment in the presentation.
+```json
+{
+  "disaster_type": "wildfire",
+  "scenario_id": "canada_live",
+  "fire_id": "2025_AB_SWF-085-2025",
+  "location": {
+    "name": "2025_AB_SWF-085-2025",
+    "latitude": 56.789,
+    "longitude": -113.8376
+  },
+  "live_inputs": {
+    "active_fire": {},
+    "weather": {},
+    "terrain": {},
+    "nearby_assets": []
+  },
+  "physics": {
+    "threat_level": "CRITICAL",
+    "spread_rate_fpm": 25.2,
+    "dominant_direction_deg": 82,
+    "slope_deg": 26,
+    "wind_mph": 31
+  },
+  "prediction": {
+    "prediction_window_min": 180,
+    "next_failure": "highway_corridor_35",
+    "eta_min": 74,
+    "cascade_if_unmitigated": [
+      "highway_corridor_35 DEGRADED",
+      "community_primary_exit AT_RISK",
+      "evacuation_capacity REDUCED"
+    ],
+    "preventive_actions": {
+      "fire_incident_command": "Hold east flank before highway corridor.",
+      "traffic_management": "Stage officers at control points.",
+      "evacuation_branch": "Warn exposed community now.",
+      "utility_operator": "Check power assets inside spread cone."
+    }
+  },
+  "agents": {
+    "hazard": {},
+    "cascade": {},
+    "secondary": {},
+    "coordinator": {}
+  },
+  "data_sources": {
+    "weather": {"provider": "ECCC MSC GeoMet", "fallback_used": false},
+    "terrain": {"provider": "NRCan Elevation API", "fallback_used": false},
+    "active_fire": {"provider": "Esri Canada / CWFIS", "fallback_used": false},
+    "ai_stack": {}
+  },
+  "events": []
+}
+```
 
----
+### `GET /dispatch/wildfire/{fire_id}/events`
 
-## 9. 36-Hour Build Plan
-
-### Hours 0–2: Kickoff
-- **P2:** Scaffold backend. Define and share output contract JSON. This is the only blocking dependency — do it first.
-- **P1:** Set up frontend. Create mock_response.json. Start building UI against it immediately.
-- **P3:** Set up environment. Start scenario pack folder. Download Palisades GeoJSON from NIFC.
-
-### Hours 2–10: Core Build (All Three Independent)
-- **P1:** Full dashboard layout. Validator feed rendering mock events. Three agency panels with mock data. Map loading dark base tiles.
-- **P2:** Build physics module. Test each engine with assertions: `fire_threat_level(28, 35, 2.8)` must return CRITICAL. All three engines tested in isolation.
-- **P3:** Prepare `infrastructure.json`, `dependency_graph.json`, and `metadata.json`. Verify scenario files match P2's node IDs.
-
-### Hours 10–20: Agents + Map
-- **P1:** Load Palisades GeoJSON T+0 fire perimeter. Add power line polylines from OSM. Add substation markers. Add PCH road. Wire time slider to swap T+0/T+15/T+30. Add cascade pulse animation. Connect real-time event client.
-- **P2:** Build validator. Build Featherless wrappers for Hazard, Cascade, and Secondary agents. Build IBM watsonx.ai Granite wrapper for Coordinator. Keep deterministic fallbacks. Wire full pipeline. Test POST /dispatch/wildfire/1 via curl — must return valid JSON matching contract before moving on.
-- **P3:** Tune Featherless debris flow agent prompt/config for demo rejection. Hand off T+15 and T+30 GeoJSON. Test cascade propagation end-to-end with P2.
-
-### Hours 20–28: Integration
-- **P1:** Swap mock JSON for real API calls. Fix every map display bug — power lines turning red, pulse animations firing, road color changes. Validator feed populates live.
-- **P2:** Add real-time event emission at every pipeline step. Deploy backend. End-to-end integration test with P1 frontend.
-- **P3:** Full integration test. Verify validator rejection fires. Verify all three agency panels populate. Verify map animates correctly across all three timesteps.
-
-### Hours 28–34: Testing + Submission
-- Run full demo scenario three times. Validator must reject on every run. Agency panels must populate. Map must animate cascade.
-- **P1:** Record 2–3 minute demo video following Section 10 script. Write Devpost submission. Push GitHub repo with README, env vars, setup instructions. Architecture diagram. 5-slide deck.
-- **P2 + P3:** Fix bugs only. No new features.
-
-### Hours 34–36: Stop
-Stop coding. Sleep.
-
----
-
-## 10. Demo Script — 2:30 Minutes
-
-P1 owns this. Script it before recording. Every second is accounted for.
-
-| Time | Say + Show |
-|------|-----------|
-| 0:00–0:20 | **Screen:** Dark map of Pacific Palisades, Los Angeles. Everything green. No fire. **Voice:** "January 7th, 2025. The danger was not only the flame front. It was the cascade: fire into power, power into traffic signals, traffic into evacuation failure. StormOS predicts that chain before it completes." |
-| 0:20–0:40 | **Screen:** Click Dispatch. Real Palisades fire perimeter polygon appears at T+0. Prediction window appears: Line A failure in 12 minutes if unmitigated. **Voice:** "This is real GeoJSON data from the January 2025 Palisades Fire. At T+0, StormOS predicts the next infrastructure failure and shows what breaks downstream before it happens." |
-| 0:40–1:05 | **Screen:** Validator feed populates. RED rejection card visible with violation message. **Voice:** "Our Featherless debris flow agent output LOW risk on a 34-degree burned slope with rain forecast. Our USGS M1 physics engine calculated 0.71 probability — HIGH. Rejected. Forced to replan. No AI hallucination reaches an agency commander." Green VALIDATED card appears. |
-| 1:05–1:25 | **Screen:** Drag slider to T+15. Fire perimeter grows. Line A turns red. Pulse to Malibu Substation — red. Pulse to PCH signals — red. PCH turns red. **Voice:** "At T+15 the predicted cascade begins: Transmission Line A fails, the substation fails, traffic signals go dark, and PCH blocks. The point is not that StormOS saw this after it happened. It warned every agency before the chain completed." |
-| 1:25–1:45 | **Screen:** Three agency panels populated, all P1 red. **Voice:** "IBM watsonx Granite synthesizes the validated specialist outputs into preventive actions. Fire IC: protect Line A. Utility: switch Substation B. Traffic: deploy officers to PCH before signals fail." |
-| 1:45–2:10 | **Screen:** Drag to T+30. Debris flow zone appears on burned hillside above Malibu. **Voice:** "At T+30 the debris flow risk is HIGH on the burned slopes above Malibu. A secondary hazard forming in the same window. All three agencies updated simultaneously." |
-| 2:10–2:30 | **Screen:** Full dashboard view. **Voice:** "After-action reviews called out communications vulnerabilities and the need for integrated tools. Existing systems detect fires, predict spread, and send alerts. StormOS fills the missing layer: a physics-validated forward cascade graph that tells three agencies what must happen before evacuation infrastructure fails. SDG 11, 13, and 9." |
-
----
-
-## 11. Judging Criteria Alignment
-
-| Criterion | How StormOS Wins |
-|-----------|-----------------|
-| Innovation (25%) | Forward cascade prediction plus physics validation is the wedge. Genasys manages communications. Technosylva predicts fire behavior. Pano detects fires. Watch Duty informs the public. StormOS models what fire will do to power, what power failure will do to traffic, and what three agencies must do before the evacuation route fails. |
-| Technical Implementation (25%) | Three independent physics engines (Rothermel, cascade graph, USGS M1) running before any AI call. Featherless specialist agents. IBM watsonx.ai Granite coordinator. Closed-loop validator with retry logic and exact violation messages. Real-time event streaming. Real GeoJSON from NIFC and OSM. Shared orchestrator with typed output contract. All components testable independently. |
-| Impact + SDGs (25%) | SDG 11.5: McChrystal Group documents coordination failures killing 31 people in January 2025. AECOM proposes $664M to fix the power cascade that destroyed 57% of electric service points in Pacific Palisades. SDG 13.1: climate change is making wildfire cascades more frequent. SDG 9.1: infrastructure resilience is the mechanism by which disasters become survivable. |
-| Usability + Design (15%) | Single dark professional dashboard. One click to dispatch. Left: cascade map with prediction countdown and live animations. Right: validator feed + three agency panels. Each panel shows one preventive recommendation and three notifications. Time slider for forward prediction. No training required. |
-| Presentation (10%) | 2:30 minute video scripted to hit every criterion in sequence. Validator rejection at 0:40 is the highlight. Cascade animation at 1:05 is the visual proof. Three red P1 panels at 1:25 is the emotional close. |
+Streams agent comms and validation events in real time.
 
 ---
 
-## 12. Risks + Mitigations
+## 10. MVP Build Plan
+
+### Phase 1: Live Fire Intake
+
+Goal: replace the single hardcoded scenario selector with real Canadian fires.
+
+Deliverables:
+
+```text
+backend/services/canada_fires.py
+GET /fires/canada/live
+fire normalization model
+ranked list in frontend
+```
+
+Acceptance:
+
+```text
+App loads real active fires from public ArcGIS service.
+Each fire has name, agency, hectares, stage, lat/lon, data source.
+UI shows ranked list with no fake fire names.
+```
+
+### Phase 2: Weather + Terrain Enrichment
+
+Goal: every selected fire gets live operational context.
+
+Deliverables:
+
+```text
+backend/services/eccc_weather.py
+backend/services/terrain.py
+wind speed/direction/gust/rain
+slope/aspect sample around selected fire
+fallback labels if API fails
+```
+
+Acceptance:
+
+```text
+Selected fire panel shows wind, direction, rainfall, slope, aspect, and source freshness.
+No hidden fallback values.
+```
+
+### Phase 3: Real Asset Detection
+
+Goal: find what the fire can break.
+
+Deliverables:
+
+```text
+OpenStreetMap query around selected fire
+roads, highways, power lines, substations, hospitals, shelters, communities
+nearest asset list
+asset distance and bearing
+```
+
+Acceptance:
+
+```text
+For each selected fire, UI can show top 5 exposed assets and the most likely next failure.
+```
+
+### Phase 4: 1h / 2h / 3h Spread Cone
+
+Goal: show forward prediction, not just a point on a map.
+
+Deliverables:
+
+```text
+spread cone geometry
+time-to-impact calculation
+intersection with assets
+timeline slider from now to 3h
+```
+
+Acceptance:
+
+```text
+Dragging timeline changes spread cone and affected assets.
+At least one real Canadian fire produces a meaningful exposed-route or exposed-community case.
+```
+
+### Phase 5: Agent Pipeline Grounded In Real Inputs
+
+Goal: agents coordinate from real source data.
+
+Deliverables:
+
+```text
+Featherless Hazard Agent uses live weather/terrain/fire context
+Featherless Cascade Agent uses real asset graph
+Validator checks every agent claim against numeric inputs
+watsonx Coordinator produces station tasks
+Agent Comms panel shows source -> target messages
+```
+
+Acceptance:
+
+```text
+AI provider status is visible.
+Featherless specialist agents run live when keys work.
+watsonx runs live when project permissions are fixed.
+Fallback is clearly labeled if triggered.
+```
+
+### Phase 6: Government-Grade UI Polish
+
+Goal: make the product feel operational.
+
+Deliverables:
+
+```text
+map-first layout
+ranked live-fire inbox
+right-side command panel
+minimal department task strip
+clear agent comms
+data-source badges
+high-contrast accessible design
+```
+
+Acceptance:
+
+```text
+Responder can understand the next failure, owner, action, and evidence in under 10 seconds.
+No clipped text.
+No card clutter.
+No unlabeled fake data.
+```
+
+---
+
+## 11. Team Responsibilities
+
+| Person | Owns | Current Priority |
+|--------|------|------------------|
+| P1 - Frontend | Map-first responder UI, live fire inbox, command panel, timeline, accessibility, demo recording | Replace clutter with live national incident workflow |
+| P2 - Backend / Physics / Agents | API contracts, physics, validator, Featherless/watsonx wrappers, event streaming, provider status | Build live Canadian pipeline and keep physics testable |
+| P3 - Data / Integration | Canadian data feeds, OSM assets, terrain/weather integration, scenario selection, demo validation | Make real data reliable and select best live demo fire |
+
+P2 remains responsible for correctness. P3 can own data files and provider URLs, but P2 must define the normalized schema and validator contract.
+
+---
+
+## 12. Demo Script
+
+### 0:00-0:20: Real Canada Fire Inbox
+
+Show the app loading active Canadian fires.
+
+Voice:
+
+```text
+This is not a static demo. StormOS is reading live Canadian wildfire data and ranking active incidents by cascade risk.
+```
+
+### 0:20-0:45: Select Highest-Risk Fire
+
+Click the top fire.
+
+Voice:
+
+```text
+This fire is uncontrolled, large, and currently aligned with wind and terrain. StormOS pulls live weather, terrain slope, and nearby infrastructure.
+```
+
+### 0:45-1:15: Prediction Moment
+
+Show 1h/2h/3h spread cone intersecting a route or asset.
+
+Voice:
+
+```text
+The system is not just showing where the fire is. It predicts what it may break next and how long responders have to act.
+```
+
+### 1:15-1:45: Agent Validation
+
+Show Agent Comms and provider badges.
+
+Voice:
+
+```text
+Featherless specialist agents reason over hazard and cascade risk, but the validator blocks any claim that contradicts live wind, slope, or graph physics.
+```
+
+### 1:45-2:15: Coordinated Plan
+
+Show station tasks.
+
+Voice:
+
+```text
+IBM watsonx coordinates the validated outputs into one operating plan: Fire, Utility, Traffic, and Evacuation each know what to do now.
+```
+
+### 2:15-2:30: Close
+
+Voice:
+
+```text
+Existing tools show fires. StormOS shows the next failure and synchronizes the response before that failure becomes an evacuation crisis.
+```
+
+---
+
+## 13. Judging Criteria Alignment
+
+| Criterion | How StormOS Canada Wins |
+|-----------|-------------------------|
+| Innovation | Turns live wildfire feeds into forward infrastructure cascade prediction, not just situational awareness |
+| Technical Implementation | Public live data adapters, weather/terrain enrichment, physics forecast, cascade graph, AI agents, validator, event stream |
+| Impact / SDGs | Directly targets disaster deaths, climate adaptation, and infrastructure resilience |
+| Usability | Responder-first map, ranked incident inbox, four-question command panel, readable agent comms |
+| Presentation | Judges see live Canadian fires, real weather/slope inputs, and a coordinated action plan |
+
+---
+
+## 14. Risks And Mitigations
 
 | Risk | Mitigation |
-|------|-----------|
-| Validator never rejects — key demo moment is invisible | P3 deliberately tunes debris flow agent prompt to output LOW without the violation message. Test at hour 20. This is intentional demo engineering. |
-| Palisades GeoJSON wrong format or does not load | P3 downloads and validates all GeoJSON files at hour 0. Keep backup circle coordinates centered on Pacific Palisades as fallback. |
-| Featherless API unavailable during demo | Deterministic specialist-agent fallback returns the same structured JSON schema. UI shows fallback status in a small data-source badge. Validator still runs. |
-| IBM watsonx.ai API unavailable during demo | Deterministic Coordinator fallback returns the same three-agency schema. UI shows fallback status in a small data-source badge. The product story does not change. |
-| Cascade pulse animation hard to implement cleanly | Color transition plus pulsing circle animation is sufficient — ~30 lines. If broken at hour 28, remove it. Static color change green to red still communicates the cascade clearly. |
-| Real-time streaming adds complexity without enough time | Make it optional. Poll /dispatch/wildfire/1 every 2 seconds instead. The validator feed still works. Remove streaming from the demo rather than showing it half-broken. |
-| Judge asks about Genasys | Prepared answer: Genasys is a strong communications and alerting platform. StormOS is not trying to replace it. StormOS predicts infrastructure cascade consequences that can feed better agency coordination and downstream alert decisions. |
+|------|------------|
+| Live fire feed has missing fields | Normalize defensively. Show unknown values. Keep Palisades backup scenario |
+| Weather or terrain API fails | Use deterministic fallback with visible `fallback_used=true` badge |
+| No active fire has an obvious infrastructure exposure during judging | Preselect a real high-risk fire from the live feed before recording. Keep cached sample response |
+| OSM asset query is sparse in remote areas | Include roads, communities, power, hospitals, shelters. If power data missing, route/community exposure still carries demo |
+| Featherless latency | Use confirmed working `Qwen/Qwen2.5-1.5B-Instruct`, timeout 45 seconds, deterministic fallback labeled |
+| watsonx permissions fail | Use deterministic coordinator fallback and show `fallback_used=true`; fix IBM project membership before final demo |
+| UI becomes cluttered | Keep map primary. Only show next failure, ETA, owner, action, evidence |
+| Judges ask if fire model is certified | Say no. MVP uses explainable physics-inspired validation; architecture can swap in agency-grade FBP/FWI models |
 
 ---
 
-## What Wins
+## 15. Definition Of Done
 
-Four moments. Build them perfectly. Everything else is secondary.
+StormOS Canada is demo-ready when:
 
-| Moment | What Judges See |
-|--------|----------------|
-| 0:40 — Validator rejects debris flow agent | AI caught hallucinating and corrected in real time. |
-| 1:05 — Predicted cascade chain animates | Power line fails → substation → road blocked, matching the forecast shown before failure. |
-| 1:25 — Three P1 red panels appear | Three agencies receive preventive actions from one shared prediction. |
-| 2:15 — McChrystal Group report cited | Documented real deaths. Documented gap. This is real. |
+```text
+Live Canadian active fires load.
+At least one real fire can be selected.
+Selected fire shows live/fresh weather and terrain context.
+Map shows 1h/2h/3h spread cone.
+System identifies a next threatened route, asset, or community.
+Featherless specialist agents run live or visibly fallback.
+watsonx coordinator runs live or visibly fallback.
+Validator events appear in Agent Comms.
+Responder panel gives one clear action per department.
+No UI text is clipped.
+No source data is secretly fake.
+```
 
-> The physics to model a wildfire infrastructure cascade was published in 1972. The data to run it is free and public. The government reports documenting the coordination failures it causes were released four months ago. What had never been built was the system that runs it in real time, catches AI hallucinations before they reach a commander, and tells three agencies what to do before the chain completes. That system is StormOS.
+---
+
+## 16. Final Product Statement
+
+> **StormOS Canada gives emergency operations teams a live, physics-validated view of which wildfire is about to become an infrastructure failure. It ranks active fires, predicts the next asset or evacuation route at risk, validates AI recommendations against real wind and terrain, and gives Fire, Utility, Traffic, and Evacuation one shared plan before the failure happens.**
