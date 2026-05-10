@@ -62,7 +62,7 @@ def run_featherless_json_agent(
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com/abdulrahmanzrein/IBM-Z-Hackathon",
-            "X-Title": "StormOS",
+            "X-Title": "Foresight",
         },
         method="POST",
     )

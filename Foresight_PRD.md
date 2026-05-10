@@ -1,4 +1,4 @@
-# StormOS
+# Foresight
 ## Wildfire Cascade Incident Commander
 **IBM Z × UNSA Sheridan Hackathon 2026 — Product Requirements Document**
 
@@ -21,19 +21,19 @@
 
 ---
 
-## 1. What StormOS Is
+## 1. What Foresight Is
 
-> **StormOS is a multi-agent AI system that predicts when a wildfire will trigger an infrastructure cascade, validates every AI recommendation against deterministic physics, and delivers coordinated tactical instructions to three agency commanders before the cascade blocks evacuation.**
+> **Foresight is a multi-agent AI system that predicts when a wildfire will trigger an infrastructure cascade, validates every AI recommendation against deterministic physics, and delivers coordinated tactical instructions to three agency commanders before the cascade blocks evacuation.**
 
-StormOS is best understood as a **cascade intelligence layer for wildfire Emergency Operations Centers (EOCs)**. It is not a fire detection tool, an evacuation alert platform, a public wildfire app, or a replacement for incident commanders. Existing tools — Pano AI, Watch Duty, Genasys, Technosylva — cover parts of those jobs.
+Foresight is best understood as a **cascade intelligence layer for wildfire Emergency Operations Centers (EOCs)**. It is not a fire detection tool, an evacuation alert platform, a public wildfire app, or a replacement for incident commanders. Existing tools — Pano AI, Watch Duty, Genasys, Technosylva — cover parts of those jobs.
 
-StormOS answers the question none of them answer:
+Foresight answers the question none of them answer:
 
 > At the current wind, slope, and fire perimeter, which power line fails next, what fails downstream, how long until evacuation access collapses, and what do three agency commanders need to do before that window closes?
 
 The product wedge is narrow on purpose:
 
-> **Genasys helps communicate who should evacuate. Technosylva helps predict fire behavior. StormOS predicts when the fire breaks the infrastructure people need to evacuate — then synchronizes Fire, Utility, and Traffic from one physics-validated incident graph.**
+> **Genasys helps communicate who should evacuate. Technosylva helps predict fire behavior. Foresight predicts when the fire breaks the infrastructure people need to evacuate — then synchronizes Fire, Utility, and Traffic from one physics-validated incident graph.**
 
 ### The Documented Gap
 
@@ -43,22 +43,22 @@ The product wedge is narrow on purpose:
 | Malibu after-action report | Genasys Protect — the most widely deployed wildfire tool — created confusion because zone changes were not coordinated across agencies. |
 | AECOM engineering report (Feb 2026) | Pacific Palisades still out of evacuation compliance. $664M proposed to underground power lines because 57% of electric service points were destroyed by the cascade. |
 
-### What StormOS Does Not Claim
+### What Foresight Does Not Claim
 
 | Not Claiming | Why |
 |--------------|-----|
-| Not replacing Genasys, Watch Duty, Technosylva, Pano AI, or dispatchers | StormOS should plug into the EOC workflow as a decision-support layer, not compete as a full emergency-management suite. |
+| Not replacing Genasys, Watch Duty, Technosylva, Pano AI, or dispatchers | Foresight should plug into the EOC workflow as a decision-support layer, not compete as a full emergency-management suite. |
 | Not a certified operational fire-spread model | The demo uses PRD-calibrated deterministic physics inspired by published models. It proves the validation pattern and cascade workflow. |
-| Not a public evacuation alert system | StormOS produces agency recommendations; official public warnings still come from authorized emergency managers. |
+| Not a public evacuation alert system | Foresight produces agency recommendations; official public warnings still come from authorized emergency managers. |
 | Not fully live Palisades 2025 recreation | The demo uses historical fire geometry, public infrastructure data, and live/current weather where available. |
 
 ---
 
 ## 2. The Cascade — This Is the Product
 
-StormOS focuses on the failure chain that makes a wildfire become a multi-agency infrastructure emergency. The fire burns power lines. Power lines kill substations. Substations kill traffic signals. Traffic signals block PCH. People cannot get out. That chain can unfold in minutes and crosses separate agency systems with no guaranteed shared picture of what is about to happen.
+Foresight focuses on the failure chain that makes a wildfire become a multi-agency infrastructure emergency. The fire burns power lines. Power lines kill substations. Substations kill traffic signals. Traffic signals block PCH. People cannot get out. That chain can unfold in minutes and crosses separate agency systems with no guaranteed shared picture of what is about to happen.
 
-That chain is deterministic, predictable, and modelable with published physics. StormOS models it forward in time, identifies the next likely infrastructure failure, calculates the unmitigated downstream cascade, and coordinates agency action before the chain completes.
+That chain is deterministic, predictable, and modelable with published physics. Foresight models it forward in time, identifies the next likely infrastructure failure, calculates the unmitigated downstream cascade, and coordinates agency action before the chain completes.
 
 | Step | Prediction / Event | Physics Engine | Agency Triggered |
 |------|--------------------|---------------|-----------------|
@@ -70,7 +70,7 @@ That chain is deterministic, predictable, and modelable with published physics. 
 
 ### Prediction Output
 
-StormOS should expose the forward prediction explicitly in the API and UI:
+Foresight should expose the forward prediction explicitly in the API and UI:
 
 ```json
 {
@@ -125,7 +125,7 @@ If only one visual animation is polished, polish this sequence: fire approaches 
 
 ### Why the Cascade Visualization Is the Demo
 
-Click Dispatch. The fire perimeter polygon appears on the map. At T+0, StormOS predicts the fire will hit Transmission Line A inside the intervention window and shows the unmitigated cascade before it happens. At T+15 it crosses Transmission Line A — the line turns red. A pulse animation runs to Malibu Substation — it turns red. Another pulse runs to the PCH traffic signals — they turn red. PCH turns red. The product moment is that Fire, Utility, and Traffic were warned before this visible failure chain completed.
+Click Dispatch. The fire perimeter polygon appears on the map. At T+0, Foresight predicts the fire will hit Transmission Line A inside the intervention window and shows the unmitigated cascade before it happens. At T+15 it crosses Transmission Line A — the line turns red. A pulse animation runs to Malibu Substation — it turns red. Another pulse runs to the PCH traffic signals — they turn red. PCH turns red. The product moment is that Fire, Utility, and Traffic were warned before this visible failure chain completed.
 
 ---
 
@@ -184,11 +184,11 @@ Every AI disaster tool has the same problem: agents hallucinate. They output LOW
 
 ### Required AI Provider Strategy
 
-StormOS must visibly use both required track technologies without weakening the safety story:
+Foresight must visibly use both required track technologies without weakening the safety story:
 
 | Provider | Used For | Why |
 |----------|----------|-----|
-| Featherless AI | Hazard, Cascade, and Secondary specialist agents | Gives StormOS open-weight, serverless specialist reasoning for each technical domain. |
+| Featherless AI | Hazard, Cascade, and Secondary specialist agents | Gives Foresight open-weight, serverless specialist reasoning for each technical domain. |
 | IBM watsonx.ai Granite | Coordinator agent | Produces the final cross-agency command recommendations and aligns with the IBM Z hackathon track. |
 | Deterministic Python | Physics engines and validator | Establishes ground truth. This layer never calls an LLM. |
 
@@ -200,13 +200,13 @@ Fallback rule: if Featherless or watsonx is unavailable during the demo, determi
 
 | Competitor | What They Do / What They Miss |
 |------------|------------------------------|
-| Genasys Protect | Evacuation zones, public alerts, emergency communications, and coordination workflows. Strong product; StormOS should complement it by predicting infrastructure cascades that change what agencies must do before alerts go out. |
-| Technosylva | Wildfire behavior prediction, asset risk scoring, fire simulations, utility wildfire operations. Strong science platform; StormOS is narrower: fire-caused downstream dependencies from power to traffic to evacuation passability. |
-| Pano AI / OroraTech | Early fire detection using cameras, satellites, and verification workflows. StormOS starts after detection: what does this fire do to infrastructure dependencies? |
-| Watch Duty | Public wildfire information and alerts, human-vetted updates, fire maps, wind, evacuation info. StormOS is not public-facing; it is commander-facing cascade decision support. |
-| DOE/Sandia Grid Monitor | De-energizes grid sections to prevent power lines from starting fires — solves the inverse problem. StormOS solves the cascade from fire damaging existing power infrastructure. |
+| Genasys Protect | Evacuation zones, public alerts, emergency communications, and coordination workflows. Strong product; Foresight should complement it by predicting infrastructure cascades that change what agencies must do before alerts go out. |
+| Technosylva | Wildfire behavior prediction, asset risk scoring, fire simulations, utility wildfire operations. Strong science platform; Foresight is narrower: fire-caused downstream dependencies from power to traffic to evacuation passability. |
+| Pano AI / OroraTech | Early fire detection using cameras, satellites, and verification workflows. Foresight starts after detection: what does this fire do to infrastructure dependencies? |
+| Watch Duty | Public wildfire information and alerts, human-vetted updates, fire maps, wind, evacuation info. Foresight is not public-facing; it is commander-facing cascade decision support. |
+| DOE/Sandia Grid Monitor | De-energizes grid sections to prevent power lines from starting fires — solves the inverse problem. Foresight solves the cascade from fire damaging existing power infrastructure. |
 
-> **The exact gap:** Existing tools answer where the fire is, how it may spread, who may need to evacuate, or how to communicate alerts. StormOS answers: what does this fire do to the power grid, what does that do to evacuation routes, and what do Fire, Utility, and Traffic need to do from one shared validated cascade timeline?
+> **The exact gap:** Existing tools answer where the fire is, how it may spread, who may need to evacuate, or how to communicate alerts. Foresight answers: what does this fire do to the power grid, what does that do to evacuation routes, and what do Fire, Utility, and Traffic need to do from one shared validated cascade timeline?
 
 ---
 
@@ -323,21 +323,21 @@ P1 owns this. Script it before recording. Every second is accounted for.
 
 | Time | Say + Show |
 |------|-----------|
-| 0:00–0:20 | **Screen:** Dark map of Pacific Palisades, Los Angeles. Everything green. No fire. **Voice:** "January 7th, 2025. The danger was not only the flame front. It was the cascade: fire into power, power into traffic signals, traffic into evacuation failure. StormOS predicts that chain before it completes." |
-| 0:20–0:40 | **Screen:** Click Dispatch. Real Palisades fire perimeter polygon appears at T+0. Prediction window appears: Line A failure in 12 minutes if unmitigated. **Voice:** "This is real GeoJSON data from the January 2025 Palisades Fire. At T+0, StormOS predicts the next infrastructure failure and shows what breaks downstream before it happens." |
+| 0:00–0:20 | **Screen:** Dark map of Pacific Palisades, Los Angeles. Everything green. No fire. **Voice:** "January 7th, 2025. The danger was not only the flame front. It was the cascade: fire into power, power into traffic signals, traffic into evacuation failure. Foresight predicts that chain before it completes." |
+| 0:20–0:40 | **Screen:** Click Dispatch. Real Palisades fire perimeter polygon appears at T+0. Prediction window appears: Line A failure in 12 minutes if unmitigated. **Voice:** "This is real GeoJSON data from the January 2025 Palisades Fire. At T+0, Foresight predicts the next infrastructure failure and shows what breaks downstream before it happens." |
 | 0:40–1:05 | **Screen:** Validator feed populates. RED rejection card visible with violation message. **Voice:** "Our Featherless debris flow agent output LOW risk on a 34-degree burned slope with rain forecast. Our USGS M1 physics engine calculated 0.71 probability — HIGH. Rejected. Forced to replan. No AI hallucination reaches an agency commander." Green VALIDATED card appears. |
-| 1:05–1:25 | **Screen:** Drag slider to T+15. Fire perimeter grows. Line A turns red. Pulse to Malibu Substation — red. Pulse to PCH signals — red. PCH turns red. **Voice:** "At T+15 the predicted cascade begins: Transmission Line A fails, the substation fails, traffic signals go dark, and PCH blocks. The point is not that StormOS saw this after it happened. It warned every agency before the chain completed." |
+| 1:05–1:25 | **Screen:** Drag slider to T+15. Fire perimeter grows. Line A turns red. Pulse to Malibu Substation — red. Pulse to PCH signals — red. PCH turns red. **Voice:** "At T+15 the predicted cascade begins: Transmission Line A fails, the substation fails, traffic signals go dark, and PCH blocks. The point is not that Foresight saw this after it happened. It warned every agency before the chain completed." |
 | 1:25–1:45 | **Screen:** Three agency panels populated, all P1 red. **Voice:** "IBM watsonx Granite synthesizes the validated specialist outputs into preventive actions. Fire IC: protect Line A. Utility: switch Substation B. Traffic: deploy officers to PCH before signals fail." |
 | 1:45–2:10 | **Screen:** Drag to T+30. Debris flow zone appears on burned hillside above Malibu. **Voice:** "At T+30 the debris flow risk is HIGH on the burned slopes above Malibu. A secondary hazard forming in the same window. All three agencies updated simultaneously." |
-| 2:10–2:30 | **Screen:** Full dashboard view. **Voice:** "After-action reviews called out communications vulnerabilities and the need for integrated tools. Existing systems detect fires, predict spread, and send alerts. StormOS fills the missing layer: a physics-validated forward cascade graph that tells three agencies what must happen before evacuation infrastructure fails. SDG 11, 13, and 9." |
+| 2:10–2:30 | **Screen:** Full dashboard view. **Voice:** "After-action reviews called out communications vulnerabilities and the need for integrated tools. Existing systems detect fires, predict spread, and send alerts. Foresight fills the missing layer: a physics-validated forward cascade graph that tells three agencies what must happen before evacuation infrastructure fails. SDG 11, 13, and 9." |
 
 ---
 
 ## 11. Judging Criteria Alignment
 
-| Criterion | How StormOS Wins |
+| Criterion | How Foresight Wins |
 |-----------|-----------------|
-| Innovation (25%) | Forward cascade prediction plus physics validation is the wedge. Genasys manages communications. Technosylva predicts fire behavior. Pano detects fires. Watch Duty informs the public. StormOS models what fire will do to power, what power failure will do to traffic, and what three agencies must do before the evacuation route fails. |
+| Innovation (25%) | Forward cascade prediction plus physics validation is the wedge. Genasys manages communications. Technosylva predicts fire behavior. Pano detects fires. Watch Duty informs the public. Foresight models what fire will do to power, what power failure will do to traffic, and what three agencies must do before the evacuation route fails. |
 | Technical Implementation (25%) | Three independent physics engines (Rothermel, cascade graph, USGS M1) running before any AI call. Featherless specialist agents. IBM watsonx.ai Granite coordinator. Closed-loop validator with retry logic and exact violation messages. Real-time event streaming. Real GeoJSON from NIFC and OSM. Shared orchestrator with typed output contract. All components testable independently. |
 | Impact + SDGs (25%) | SDG 11.5: McChrystal Group documents coordination failures killing 31 people in January 2025. AECOM proposes $664M to fix the power cascade that destroyed 57% of electric service points in Pacific Palisades. SDG 13.1: climate change is making wildfire cascades more frequent. SDG 9.1: infrastructure resilience is the mechanism by which disasters become survivable. |
 | Usability + Design (15%) | Single dark professional dashboard. One click to dispatch. Left: cascade map with prediction countdown and live animations. Right: validator feed + three agency panels. Each panel shows one preventive recommendation and three notifications. Time slider for forward prediction. No training required. |
@@ -355,7 +355,7 @@ P1 owns this. Script it before recording. Every second is accounted for.
 | IBM watsonx.ai API unavailable during demo | Deterministic Coordinator fallback returns the same three-agency schema. UI shows fallback status in a small data-source badge. The product story does not change. |
 | Cascade pulse animation hard to implement cleanly | Color transition plus pulsing circle animation is sufficient — ~30 lines. If broken at hour 28, remove it. Static color change green to red still communicates the cascade clearly. |
 | Real-time streaming adds complexity without enough time | Make it optional. Poll /dispatch/wildfire/1 every 2 seconds instead. The validator feed still works. Remove streaming from the demo rather than showing it half-broken. |
-| Judge asks about Genasys | Prepared answer: Genasys is a strong communications and alerting platform. StormOS is not trying to replace it. StormOS predicts infrastructure cascade consequences that can feed better agency coordination and downstream alert decisions. |
+| Judge asks about Genasys | Prepared answer: Genasys is a strong communications and alerting platform. Foresight is not trying to replace it. Foresight predicts infrastructure cascade consequences that can feed better agency coordination and downstream alert decisions. |
 
 ---
 
@@ -370,4 +370,4 @@ Four moments. Build them perfectly. Everything else is secondary.
 | 1:25 — Three P1 red panels appear | Three agencies receive preventive actions from one shared prediction. |
 | 2:15 — McChrystal Group report cited | Documented real deaths. Documented gap. This is real. |
 
-> The physics to model a wildfire infrastructure cascade was published in 1972. The data to run it is free and public. The government reports documenting the coordination failures it causes were released four months ago. What had never been built was the system that runs it in real time, catches AI hallucinations before they reach a commander, and tells three agencies what to do before the chain completes. That system is StormOS.
+> The physics to model a wildfire infrastructure cascade was published in 1972. The data to run it is free and public. The government reports documenting the coordination failures it causes were released four months ago. What had never been built was the system that runs it in real time, catches AI hallucinations before they reach a commander, and tells three agencies what to do before the chain completes. That system is Foresight.

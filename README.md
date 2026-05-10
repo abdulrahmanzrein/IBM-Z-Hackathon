@@ -1,169 +1,205 @@
-# StormOS Frontend
+# Foresight
 
-StormOS is the frontend operator dashboard for the **IBM Z × UNSA Sheridan Hackathon 2026** project.
+**AI that stops wildfire cascades before they become disasters.**
 
-This interface simulates a professional emergency operations dashboard for wildfire infrastructure cascade response, helping operators visualize cascading failures across utilities, transportation, evacuation routes, and emergency coordination.
+Foresight is a multi-agent emergency response coordination platform built for the **IBM Z × UNSA Sheridan Hackathon 2026**.
+
+It models wildfire-driven infrastructure cascade failures in real time, validates AI recommendations against deterministic physics, and delivers coordinated emergency actions across multiple agencies before the cascade escalates.
 
 ---
 
-## Overview
+## Inspiration
 
-StormOS models a wildfire-driven infrastructure cascade scenario based on the **2025 Pacific Palisades wildfire**.
+The January 2025 Pacific Palisades wildfire exposed a dangerous gap in emergency response: people often do not die from the wildfire itself, but from the cascading infrastructure failures that follow.
 
-The frontend provides a real-time command dashboard experience where operators can:
+A wildfire can:
 
-- Monitor wildfire progression on an interactive map
-- Visualize infrastructure failures (power lines, substations, traffic systems)
-- Track cascade progression through time
-- Review operational alerts
-- Coordinate multiple responding agencies
-- Preview forward incident progression using timeline simulation
+- damage power lines
+- trigger substation outages
+- disable traffic signals
+- block evacuation routes
+- create secondary hazards like debris flows
 
-This frontend is optimized for the hackathon demo experience.
+These failures happen across agencies that traditionally operate in silos.
+
+We asked:
+
+> **What if emergency responders could see the full cascade before it happens—with AI recommendations they can actually trust?**
+
+That became Foresight.
+
+---
+
+## What Foresight Does
+
+Foresight simulates and coordinates wildfire infrastructure emergencies in real time.
+
+For our Pacific Palisades demo scenario, Foresight predicts a cascade where:
+
+🔥 Fire threatens transmission infrastructure  
+⚡ Power infrastructure fails  
+🚦 Traffic signals lose power  
+🛣️ Evacuation routes become blocked  
+⛰️ Secondary hazards (debris flow) emerge
+
+Foresight combines specialized AI agents with deterministic validation to ensure recommendations remain trustworthy.
+
+Instead of blindly trusting LLM outputs, Foresight verifies them against known physical models.
 
 ---
 
 ## Core Features
 
-### Interactive Incident Map
-
-Built with **Leaflet**, the map provides:
-
-- wildfire perimeter visualization
-- transmission power line overlays
-- substations
-- traffic intersections
-- evacuation route monitoring
-- debris flow hazard zones
-- community markers
-- asset markers
-- operational overlays
+- Multi-agent emergency response coordination
+- Interactive wildfire cascade simulation dashboard
+- Physics validator to catch AI hallucinations
+- Infrastructure dependency graph modeling
+- Real-time validator event feed
+- Agency-specific tactical recommendations
+- Timeline-based disaster replay simulation
+- Geospatial emergency visualization
 
 ---
 
-### Incident Timeline Simulation
+## Architecture
 
-Interactive timeline control allowing operators to simulate incident progression:
+### Frontend
 
-- **T+0m** → ignition state
-- **T+35m** → transmission line risk
-- **T+60m** → PCH traffic failure
-- future cascade progression support
+Built with:
 
-Features:
+- React
+- JavaScript
+- Vite
+- Tailwind CSS
+- Leaflet / React-Leaflet
 
-- gradient threat timeline
-- draggable simulation slider
-- dynamic state updates
-- forward prediction visualization
+Frontend capabilities:
 
----
-
-### Agency Coordination Dashboard
-
-Multi-agency command coordination panel for:
-
-- Fire Operations
-- Utility Operations
-- Traffic Control
-- Evacuation Management
-
-Each department panel includes:
-
-- current mission state
-- threat priority
-- operational recommendation
-- quick action advancement
+- interactive geospatial emergency dashboard
+- wildfire progression visualization
+- time slider replay simulation
+- agency coordination panels
+- validator event feed
+- infrastructure cascade visualization
 
 ---
 
-### Alert System
+### Backend
 
-Operational alert panel with:
+Python orchestration backend implementing:
 
-- severity indicators
-- risk summaries
-- incident facts
-- decision support context
-
-Severity levels:
-
-- Green → Stable
-- Orange → Elevated
-- Red → Critical
+- `POST /dispatch/wildfire/1`
+- Rothermel-inspired wildfire threat physics
+- deterministic infrastructure cascade propagation
+- USGS M1-style debris flow probability
+- validator rejection / retry logic
+- three-agency coordinated recommendations
 
 ---
 
-### Layer Controls
+### AI Layer
 
-Toggle operational layers on/off:
+Foresight uses a hybrid multi-agent AI architecture:
 
-- wildfire perimeter
-- infrastructure grid
-- evacuation overlays
-- hazard zones
-- operational markers
+**Featherless AI**
+- hazard specialist agent
+- cascade infrastructure agent
+- secondary hazard agent
+
+**IBM watsonx.ai + Granite**
+- coordinator reasoning
+- cross-agency recommendation synthesis
+
+---
+
+### Physics Validation
+
+Foresight validates AI recommendations using deterministic models:
+
+- **Rothermel wildfire spread modeling**
+- **Infrastructure dependency graph propagation**
+- **USGS debris flow probability modeling**
+
+If an AI recommendation violates physical constraints:
+
+- recommendation is rejected
+- violation is logged
+- agent is forced to replan
+
+This makes Foresight safer and more explainable for emergency decision-making.
 
 ---
 
 ## Tech Stack
 
-Frontend stack:
-
+- Python
 - React
+- JavaScript
 - Vite
+- Tailwind CSS
 - Leaflet
-- React Leaflet
-- Tailwind CSS (if applicable)
-- shadcn/ui (if installed)
-- Lucide React
+- React-Leaflet
+- Featherless AI API
+- IBM watsonx.ai API
+- IBM Granite
+- OpenStreetMap
+- Open-Meteo API
+- NIFC wildfire GeoJSON
+- NASA SRTM terrain data
+- REST APIs
+- Git
+- GitHub
 
 ---
 
-## Project Structure
+## Run Locally
 
-```bash
-frontend/
-├── src/
-│   ├── App.jsx
-│   ├── App.css
-│   ├── components/
-│   ├── assets/
-│   └── utils/
-├── public/
-├── package.json
-└── README.md
-```
-
----
-
-## Installation
-
-Clone repository:
-
-```bash
-git clone https://github.com/abdulrahmanzrein/IBM-Z-Hackathon.git
-```
-
-Move into frontend:
-
-```bash
-cd IBM-Z-Hackathon/frontend
-```
+### Backend
 
 Install dependencies:
 
 ```bash
+cd backend
+python3 -m pip install -r requirements.txt
+cd ..
+```
+
+Run server:
+
+```bash
+python3 -m uvicorn backend.main:app --reload
+```
+
+Test endpoint:
+
+```bash
+curl -X POST http://localhost:8000/dispatch/wildfire/1
+```
+
+Run tests:
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/foresight_pycache python3 -m pytest backend/tests
+```
+
+---
+
+### Frontend
+
+Install dependencies:
+
+```bash
+cd frontend
 npm install
 ```
 
-Run development server:
+Run dev server:
 
 ```bash
 npm run dev
 ```
 
-Open:
+Frontend will be available at:
 
 ```bash
 http://localhost:5173
@@ -171,63 +207,87 @@ http://localhost:5173
 
 ---
 
-## Branch
+## Environment Variables
 
-Frontend development branch:
+The backend runs with deterministic fallbacks by default.
+
+Optional live AI provider configuration:
 
 ```bash
-frontend/ui
+export FEATHERLESS_API_KEY=...
+export FEATHERLESS_MODEL=Qwen/Qwen2.5-7B-Instruct
+
+export WATSONX_API_KEY=...
+export WATSONX_PROJECT_ID=...
+export WATSONX_MODEL_ID=ibm/granite-3-8b-instruct
+export WATSONX_URL=https://us-south.ml.cloud.ibm.com
 ```
 
-Switch to branch:
+Optional:
 
 ```bash
-git checkout frontend/ui
-```
-
-Pull latest changes:
-
-```bash
-git pull origin frontend/ui
+export WATSONX_BEARER_TOKEN=...
 ```
 
 ---
 
-## Demo Focus
+## Challenges
 
-This frontend is designed specifically for hackathon demonstration impact.
+Key technical challenges included:
 
-Key demo moments:
-
-- wildfire ignition visualization
-- infrastructure cascade propagation
-- traffic disruption simulation
-- multi-agency coordination view
-- forward timeline prediction
-
-Design goals:
-
-- professional emergency operations feel
-- visually understandable in seconds
-- demo-friendly interactions
-- clear decision support UX
+- integrating deterministic validation with LLM outputs
+- synchronizing backend simulation with frontend visualization
+- modeling infrastructure cascades clearly enough for real-time decision support
+- designing a believable emergency operations dashboard within hackathon constraints
+- building trustworthy AI for high-stakes emergency response
 
 ---
 
-## Notes
+## Accomplishments
 
-Current implementation prioritizes:
+We are especially proud of:
 
-- polished frontend demo experience
-- scenario-based simulation
-- visual storytelling
-- operational dashboard realism
+**Physics-validated AI recommendations**  
+AI outputs are checked before reaching operators.
 
-Backend integration and real-time event streaming may evolve independently.
+**Cross-agency coordination**  
+Fire response, utilities, and traffic are unified in one system.
+
+**Clear simulation storytelling**  
+The infrastructure cascade is immediately understandable.
 
 ---
 
-## Team
+## UN SDG Alignment
 
-IBM Z × UNSA Sheridan Hackathon 2026
-StormOS Team
+Foresight supports:
+
+**SDG 11 — Sustainable Cities and Communities**  
+Reducing disaster-related deaths through improved emergency coordination.
+
+**SDG 13 — Climate Action**  
+Strengthening resilience against climate-driven wildfire disasters.
+
+**SDG 9 — Industry, Innovation and Infrastructure**  
+Protecting critical infrastructure through intelligent response systems.
+
+---
+
+## Future Roadmap
+
+Planned future expansion:
+
+- real-time live incident ingestion
+- flooding / hurricane / earthquake scenarios
+- predictive evacuation optimization
+- emergency notification integrations
+- deeper GIS infrastructure modeling
+- collaboration tools for incident commanders
+
+---
+
+## Vision
+
+Foresight aims to become a trusted operating system for disaster coordination:
+
+**transparent AI, physics-validated recommendations, actionable emergency intelligence—when every minute matters.**

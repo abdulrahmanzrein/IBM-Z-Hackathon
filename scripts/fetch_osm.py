@@ -23,7 +23,7 @@ out geom;
 
 def fetch_osm():
     print("Querying OpenStreetMap for Pacific Palisades + Malibu infrastructure...")
-    headers = {"User-Agent": "StormOS-Hackathon/1.0", "Content-Type": "application/x-www-form-urlencoded"}
+    headers = {"User-Agent": "Foresight-Hackathon/1.0", "Content-Type": "application/x-www-form-urlencoded"}
     r = requests.post(OVERPASS_URL, data={"data": QUERY}, headers=headers, timeout=60)
     r.raise_for_status()
     return r.json()

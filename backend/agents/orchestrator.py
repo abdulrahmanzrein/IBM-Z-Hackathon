@@ -255,7 +255,7 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
             debris_agent_output, secondary_status = run_featherless_json_agent(
                 agent_name="secondary_agent",
                 system_prompt=(
-                    "You are StormOS Secondary Agent, a post-fire debris-flow "
+                    "You are Foresight Secondary Agent, a post-fire debris-flow "
                     "specialist for dispatch. Use the provided USGS M1 physics. "
                     "Return JSON only and include role, finding, threat_label, "
                     "probability, confidence, trigger, onset_window, affected_zones, "
@@ -302,7 +302,7 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
     hazard_output, hazard_status = run_featherless_json_agent(
         agent_name="hazard_agent",
         system_prompt=(
-            "You are StormOS Hazard Agent, a fire behavior and exposure specialist "
+            "You are Foresight Hazard Agent, a fire behavior and exposure specialist "
             "for incident command. Use the provided fire physics and return JSON "
             "only with role, finding, threat_level, confidence, spread_rate_fpm, "
             "direction, time_horizon_min, trigger, affected_assets, map_annotations, "
@@ -318,7 +318,7 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
     cascade_output, cascade_status = run_featherless_json_agent(
         agent_name="cascade_agent",
         system_prompt=(
-            "You are StormOS Cascade Agent, an infrastructure dependency specialist. "
+            "You are Foresight Cascade Agent, an infrastructure dependency specialist. "
             "Never contradict deterministic graph status. Return JSON only with role, "
             "finding, confidence, trigger, next_failure, node_status, evacuation_routes, "
             "dependency_chain, cascade_timeline, map_annotations, and recommended_actions."

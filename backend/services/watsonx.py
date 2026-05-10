@@ -97,7 +97,7 @@ def run_watsonx_json_coordinator(
             {
                 "role": "system",
                 "content": (
-                    "You are the StormOS Coordinator for a wildfire dispatch center. "
+                    "You are the Foresight Coordinator for a wildfire dispatch center. "
                     "Return only valid JSON matching the fallback schema. Include "
                     "priority, incident_objective, dispatch_summary, decision_window_min, "
                     "confidence, map_focus, and agencies. Each agency must include "
