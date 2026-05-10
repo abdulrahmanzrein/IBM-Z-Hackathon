@@ -622,6 +622,7 @@ button {
   left: 96px;
   right: 96px;
   bottom: 92px;
+  height: 292px;
   min-height: 132px;
   border-radius: 8px;
   padding: 8px;
@@ -654,12 +655,14 @@ button {
 }
 
 .department-strip {
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
 .department-pill {
+  height: 100%;
   min-width: 0;
   border: 1px solid rgba(214, 199, 173, 0.24);
   padding: 12px 10px 10px;
@@ -803,6 +806,7 @@ button {
 .department-evac.active strong { color: #d8b4fe; }
 
 .ops-tabs {
+  min-height: 0;
   min-width: 0;
   padding: 7px;
   display: grid;
@@ -1140,6 +1144,7 @@ button {
     left: 12px;
     right: 12px;
     bottom: 88px;
+    height: auto;
     grid-template-columns: 1fr;
     min-height: 308px;
   }
