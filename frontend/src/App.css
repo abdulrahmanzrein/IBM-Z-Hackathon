@@ -622,11 +622,11 @@ button {
   left: 96px;
   right: 96px;
   bottom: 92px;
-  min-height: 112px;
+  min-height: 132px;
   border-radius: 8px;
   padding: 8px;
   display: grid;
-  grid-template-columns: minmax(460px, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(560px, 1fr) minmax(280px, 320px);
   gap: 8px;
 }
 
@@ -662,24 +662,26 @@ button {
 .department-pill {
   min-width: 0;
   border: 1px solid rgba(214, 199, 173, 0.24);
-  padding: 9px;
+  padding: 12px 10px 10px;
   color: var(--muted);
   cursor: pointer;
   display: grid;
-  grid-template-columns: 18px 1fr;
-  grid-template-rows: 17px 17px 1fr;
+  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-rows: 24px 24px 20px minmax(30px, 1fr);
   column-gap: 7px;
+  row-gap: 4px;
   text-align: left;
 }
 
 .department-pill svg {
-  grid-row: span 3;
+  grid-row: span 4;
   color: var(--muted);
 }
 
 .department-pill span,
 .department-pill strong,
-.department-pill em {
+.department-pill em,
+.department-pill small {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -689,15 +691,17 @@ button {
 
 .department-pill span {
   color: var(--text);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 950;
+  line-height: 1.2;
 }
 
 .department-pill strong {
   color: #fde68a;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 950;
   letter-spacing: 0.04em;
+  line-height: 1.2;
 }
 
 .department-pill em {
@@ -705,6 +709,64 @@ button {
   font-size: 10px;
   font-style: normal;
   font-weight: 800;
+  line-height: 1.25;
+}
+
+.department-pill small {
+  color: rgba(214, 199, 173, 0.64);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.task-advance-btn {
+  grid-column: 1 / -1;
+  align-self: end;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 25px;
+  border: 1px solid rgba(245, 158, 11, 0.42);
+  border-radius: 5px;
+  padding: 0 8px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.task-advance-btn span {
+  display: inline;
+  min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.task-advance-btn svg {
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.task-advance-btn:hover:not(:disabled) {
+  border-color: rgba(251, 191, 36, 0.72);
+  background: rgba(245, 158, 11, 0.28);
+  color: #fff7ed;
+}
+
+.task-advance-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.54;
 }
 
 .department-fire.active {
@@ -782,9 +844,9 @@ button {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.28;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
 }
 
 .ops-tab-content p b {
@@ -1079,6 +1141,19 @@ button {
     right: 12px;
     bottom: 88px;
     grid-template-columns: 1fr;
+    min-height: 308px;
+  }
+
+  .department-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .department-pill {
+    min-height: 118px;
+  }
+
+  .task-advance-btn {
+    max-width: none;
   }
 
   .shared-objective,

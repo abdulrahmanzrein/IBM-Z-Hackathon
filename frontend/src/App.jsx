@@ -3,7 +3,6 @@ import "./App.css";
 import L from "leaflet";
 import * as Tabs from "@radix-ui/react-tabs";
 import { motion } from "framer-motion";
-import { simulateScenario } from "./utils/simulateScenario";
 import {
   MapContainer,
   TileLayer,
@@ -16,6 +15,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import {
   Activity,
+  ArrowRight,
   Clock3,
   Flame,
   Home,
@@ -183,6 +183,8 @@ const departmentMeta = {
   },
 };
 
+const TASK_STATUS_FLOW = ["ASSIGNED", "ACKNOWLEDGED", "EN ROUTE", "COMPLETE"];
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -308,6 +310,12 @@ export default function App() {
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState("fire");
+  const [taskStatuses, setTaskStatuses] = useState({
+    fire: "ASSIGNED",
+    utility: "ASSIGNED",
+    traffic: "ASSIGNED",
+    evac: "ASSIGNED",
+  });
   const [fireKeyframes, setFireKeyframes] = useState([]);
   const [osmData, setOsmData] = useState(null);
   const [visibleLayers, setVisibleLayers] = useState({
@@ -316,21 +324,6 @@ export default function App() {
     evac: true,
     homes: true,
     staging: true,
-  });
-
-  const [scenario, setScenario] = useState({
-    windSpeed: 35,
-    slope: 28,
-    dryness: "Extreme",
-    population: 4200,
-  });
-  
-  const [interventions, setInterventions] = useState({
-    prepositionCrews: false,
-    protectLine: false,
-    backupSwitching: false,
-    trafficOfficers: false,
-    closePchEarly: false,
   });
 
   useEffect(() => {
@@ -353,9 +346,6 @@ export default function App() {
   }, []);
 
   const state = deriveIncidentState(minute);
-  const simulation = useMemo(() => {
-    return simulateScenario(scenario, interventions, minute);
-  }, [scenario, interventions, minute]);
   const fireGeoJSON = useMemo(() => {
     if (fireKeyframes.length < 2) return null;
     const sorted = [...fireKeyframes].sort((a, b) => a.minute - b.minute);
@@ -414,7 +404,9 @@ export default function App() {
   ].map((item) => ({
     ...item,
     ...departmentMeta[item.id],
-    status: departmentStatus(item.id, minute),
+    status: item.id === "traffic" && state.road === "BLOCKED" ? "BLOCKED" : taskStatuses[item.id],
+    systemStatus: departmentStatus(item.id, minute),
+    blocked: item.id === "traffic" && state.road === "BLOCKED",
   }));
 
   const incidentLog = [
@@ -438,6 +430,14 @@ export default function App() {
   const updateMinute = (value) => {
     setMinute(value);
     setApiData(null);
+  };
+
+  const advanceTaskStatus = (id) => {
+    setTaskStatuses((current) => {
+      const currentIndex = TASK_STATUS_FLOW.indexOf(current[id]);
+      const nextIndex = currentIndex === -1 ? 0 : Math.min(currentIndex + 1, TASK_STATUS_FLOW.length - 1);
+      return { ...current, [id]: TASK_STATUS_FLOW[nextIndex] };
+    });
   };
 
   return (
@@ -711,18 +711,40 @@ export default function App() {
         transition={{ duration: 0.24 }}
       >
         <div className="department-strip">
-          {departmentAssignments.map(({ id, label, asset, status, action, Icon }) => (
-            <button
+          {departmentAssignments.map(({ id, label, asset, status, systemStatus, action, Icon, blocked }) => (
+            <div
               key={id}
+              role="button"
+              tabIndex={0}
               className={`department-pill department-${id}${selectedDepartment === id ? " active" : ""}`}
               onClick={() => setSelectedDepartment(id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelectedDepartment(id);
+                }
+              }}
               title={action}
             >
               <Icon size={15} />
               <span>{label}</span>
               <strong>{status}</strong>
               <em>{asset}</em>
-            </button>
+              <small>{blocked ? "PCH BLOCKED" : `Auto: ${systemStatus}`}</small>
+              <button
+                className="task-advance-btn"
+                type="button"
+                disabled={blocked || status === "COMPLETE"}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  advanceTaskStatus(id);
+                }}
+                title={blocked ? "Traffic cannot advance while PCH is blocked" : `Advance ${label} status`}
+              >
+                <ArrowRight size={12} />
+                <span>Advance Status</span>
+              </button>
+            </div>
           ))}
         </div>
         <Tabs.Root className="ops-tabs" defaultValue="plan">
@@ -734,7 +756,10 @@ export default function App() {
             <span>Common Operating Plan</span>
             <strong>{apiData?.agents?.coordinator?.incident_objective || "Keep PCH evacuation open while departments act on the same plan."}</strong>
             {selectedAssignment && (
-              <p><b>{selectedAssignment.label}</b>{selectedAssignment.action}</p>
+              <>
+                <p><b>{selectedAssignment.label}</b>{selectedAssignment.action}</p>
+                <p><b>Flow</b>{TASK_STATUS_FLOW.join(" -> ")}</p>
+              </>
             )}
           </Tabs.Content>
           <Tabs.Content className="ops-tab-content" value="sync">
