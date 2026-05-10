@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Optional
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -8,7 +9,7 @@ from backend.services.llm_json import parse_json_object
 
 
 DEFAULT_WATSONX_URL = "https://us-south.ml.cloud.ibm.com"
-DEFAULT_WATSONX_MODEL = "ibm/granite-3-8b-instruct"
+DEFAULT_WATSONX_MODEL = "meta-llama/llama-3-3-70b-instruct"
 WATSONX_VERSION = "2024-10-08"
 IBM_IAM_TOKEN_URL = "https://iam.cloud.ibm.com/identity/token"
 
@@ -134,6 +135,13 @@ def run_watsonx_json_coordinator(
         with open_fn(request, timeout=10) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
         output = parse_json_object(_extract_message_content(response_payload))
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return fallback_output, _status(
+            model=selected_model,
+            fallback_used=True,
+            reason=f"watsonx HTTP {exc.code}: {body[:300]}",
+        )
     except Exception as exc:
         return fallback_output, _status(
             model=selected_model,
