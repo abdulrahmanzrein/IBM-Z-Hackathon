@@ -111,6 +111,93 @@ def build_prediction(timestep: int) -> dict:
     }
 
 
+def build_replay() -> list[dict]:
+    base_actions = {
+        "fire": "Send crew to defend Line A.",
+        "utility": "Switch Malibu Substation to backup power.",
+        "traffic": "Stage officers at PCH signals.",
+        "evac": "Send early warning to exposed homes.",
+    }
+
+    def task(owner: str, status: str, action: str) -> dict:
+        return {"owner": owner, "status": status, "action": action}
+
+    def tasks(*, fire: str, utility: str, traffic: str, evac: str) -> dict:
+        return {
+            "fire": task("Fire IC", fire, base_actions["fire"]),
+            "utility": task("Utility", utility, base_actions["utility"]),
+            "traffic": task("Traffic", traffic, base_actions["traffic"]),
+            "evac": task("Evacuation", evac, base_actions["evac"]),
+        }
+
+    def asset_status(*, line: str, substation: str, signals: str, road: str, debris: str = "MONITOR") -> dict:
+        return {
+            "transmission_line_A": line,
+            "substation_malibu": substation,
+            "signal_PCH_1": signals,
+            "signal_PCH_2": signals,
+            "road_PCH": road,
+            "debris_flow_zone_malibu": debris,
+        }
+
+    return [
+        {
+            "minute": 0,
+            "label": "T+0 Predict",
+            "event": "Physics flags Line A as the first failure risk.",
+            "selected_asset": "lineA",
+            "asset_status": asset_status(line="OPERATIONAL", substation="OPERATIONAL", signals="OPERATIONAL", road="CLEAR"),
+            "route_status": "CLEAR",
+            "tasks": tasks(fire="ASSIGNED", utility="STAGED", traffic="STAGED", evac="READY"),
+        },
+        {
+            "minute": 35,
+            "label": "T+35 Line A",
+            "event": "Line A fails. Utility cascade starts.",
+            "selected_asset": "lineA",
+            "asset_status": asset_status(line="FAILED", substation="AT_RISK", signals="OPERATIONAL", road="CLEAR"),
+            "route_status": "CLEAR",
+            "tasks": tasks(fire="ACKNOWLEDGED", utility="SWITCHING", traffic="STAGED", evac="ALERTING"),
+        },
+        {
+            "minute": 42,
+            "label": "T+42 Substation",
+            "event": "Substation fails. PCH signals are next.",
+            "selected_asset": "substation",
+            "asset_status": asset_status(line="FAILED", substation="FAILED", signals="AT_RISK", road="CLEAR"),
+            "route_status": "CLEAR",
+            "tasks": tasks(fire="HOLDING", utility="SWITCHING", traffic="EN ROUTE", evac="ALERTING"),
+        },
+        {
+            "minute": 48,
+            "label": "T+48 Signals",
+            "event": "Signals fail. Traffic must take manual control.",
+            "selected_asset": "pch",
+            "asset_status": asset_status(line="FAILED", substation="FAILED", signals="FAILED", road="DEGRADED"),
+            "route_status": "DEGRADED",
+            "tasks": tasks(fire="HOLDING", utility="RESTORING", traffic="MANUAL CTRL", evac="ALERTING"),
+        },
+        {
+            "minute": 60,
+            "label": "T+60 PCH blocked",
+            "event": "PCH blocks. Evacuation must reroute 4.2K residents.",
+            "selected_asset": "homes",
+            "asset_status": asset_status(line="FAILED", substation="FAILED", signals="FAILED", road="BLOCKED"),
+            "route_status": "BLOCKED",
+            "tasks": tasks(fire="HOLDING", utility="RESTORING", traffic="MANUAL CTRL", evac="REROUTING"),
+        },
+        {
+            "minute": 150,
+            "label": "T+150 Debris",
+            "event": "Rain creates debris-flow danger on burned slopes.",
+            "selected_asset": "debris",
+            "asset_status": asset_status(line="FAILED", substation="FAILED", signals="FAILED", road="BLOCKED", debris="HIGH"),
+            "route_status": "BLOCKED",
+            "tasks": tasks(fire="REPOSITION", utility="STAND CLEAR", traffic="REROUTING", evac="REROUTING"),
+        },
+    ]
+
+
 def execute_wildfire_dispatch(timestep: int) -> dict:
     timestep_state = TIMESTEP_STATE[timestep]
     scenario = load_scenario(timestep)
@@ -323,4 +410,5 @@ def execute_wildfire_dispatch(timestep: int) -> dict:
             "physics": ["Rothermel-inspired spread", "deterministic graph", "USGS M1-style debris flow"],
         },
         "events": events,
+        "replay": build_replay(),
     }

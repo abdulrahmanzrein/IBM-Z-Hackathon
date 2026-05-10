@@ -81,6 +81,22 @@ class AgentEvent(BaseModel):
     retry: Optional[int] = None
 
 
+class ReplayTask(BaseModel):
+    owner: str
+    status: str
+    action: str
+
+
+class ReplayStep(BaseModel):
+    minute: int
+    label: str
+    event: str
+    selected_asset: str
+    asset_status: dict[str, str]
+    route_status: str
+    tasks: dict[str, ReplayTask]
+
+
 class DispatchResponse(BaseModel):
     disaster_type: Literal["wildfire"]
     scenario_id: str
@@ -94,3 +110,4 @@ class DispatchResponse(BaseModel):
     agents: dict[str, dict[str, Any]]
     data_sources: DataSources
     events: list[AgentEvent]
+    replay: list[ReplayStep]

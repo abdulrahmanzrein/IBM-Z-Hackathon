@@ -14,3 +14,4 @@ def test_dispatch_response_matches_schema():
     assert parsed.prediction.status == "cascade_in_progress"
     assert parsed.physics.threat_level == "CRITICAL"
     assert parsed.events[1].type == "agent_rejected"
+    assert parsed.replay[1].asset_status["transmission_line_A"] == "FAILED"
